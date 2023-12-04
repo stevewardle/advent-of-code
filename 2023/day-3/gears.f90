@@ -10,14 +10,14 @@ PROGRAM gears
     PARAMETER               :: query_len=500
   CHARACTER(LEN=query_len)  :: query
 
-  INTEGER(KIND=int32)       :: line_len
+  INTEGER(KIND=int32)       :: line_len, part_sum, total = 0
   CHARACTER(LEN=:), &
     ALLOCATABLE             :: line_buffer(:)
+  CHARACTER(LEN=5)          :: fmt_string
   INTEGER(KIND=int32), &
     ALLOCATABLE             :: part_numbers(:), part_number_map(:,:)
 
-
-  OPEN(UNIT=input_file, FILE="example.txt")
+  OPEN(NEWUNIT=input_file, FILE="input.txt")
 
   ! Setup correctly sized line buffer - want a buffer
   ! which covers 3 lines of the input at a time and
@@ -52,9 +52,14 @@ PROGRAM gears
     ! a lookup into the part number array
     CALL gen_part_number_map(line_buffer, part_number_map, part_numbers)
 
-    WRITE(*, "(30A)") line_buffer
-    WRITE(*, "(30(I0))") part_number_map
-    WRITE(*, *) part_numbers(1:MAXVAL(part_number_map))
+    ! Now process the middle row of the 3 looking for parts
+    CALL check_part_symbol( &
+      line_buffer, &
+      part_number_map, &
+      part_numbers(1:MAXVAL(part_number_map)), &
+      part_sum)
+
+    total = total + part_sum
 
   END DO
 
@@ -62,6 +67,8 @@ PROGRAM gears
   DEALLOCATE(part_numbers)
   DEALLOCATE(line_buffer)
   CLOSE(input_file)
+
+  WRITE(*,"(AI0)") "Total sum of part numbers: ", total
 
   CONTAINS
     SUBROUTINE buffer_next(buffer, funit)
@@ -89,12 +96,13 @@ PROGRAM gears
       INTEGER(KIND=int32), &
         INTENT(OUT)        :: part_numbers(LEN(buffer)*SIZE(buffer))
       INTEGER(KIND=int32)  :: i, j, ios, digit, i_part
-      LOGICAL              :: l_last_digit=.FALSE.
+      LOGICAL              :: l_last_digit
       CHARACTER(LEN=LEN(buffer)) :: line
 
       map(:,:) = 0
       part_numbers(:) = 0
       i_part = 0
+      l_last_digit = .FALSE.
 
       DO i=1,SIZE(buffer)
         line = buffer(i)
@@ -124,5 +132,49 @@ PROGRAM gears
       END DO
 
     END SUBROUTINE gen_part_number_map
+
+    SUBROUTINE check_part_symbol(buffer, map, part_numbers, part_sum)
+      IMPLICIT NONE
+      CHARACTER(LEN=*), &
+        INTENT(IN)         :: buffer(:)
+      INTEGER(KIND=int32), &
+        INTENT(IN)        :: map(LEN(buffer),SIZE(buffer))
+      INTEGER(KIND=int32), &
+        INTENT(IN)        :: part_numbers(:)
+      INTEGER(KIND=int32), &
+        INTENT(OUT)        :: part_sum
+      INTEGER(KIND=int32)  :: neighbourhood(9)
+      INTEGER(KIND=int32)  :: i, j, part_number
+      CHARACTER(LEN=LEN(buffer)) :: line
+      CHARACTER(LEN=1), &
+        PARAMETER          :: non_parts(11) = &
+        ["1","2","3","4","5","6","7","8","9","0","."] 
+      LOGICAL              :: seen(SIZE(part_numbers))
+
+      line = buffer(2)
+      seen = .FALSE.
+      part_sum = 0
+
+      DO i=1,LEN(line)
+        IF (.NOT. ANY(line(i:i) == non_parts)) THEN
+
+          neighbourhood(1:3) = map(i-1:i+1,1)
+          neighbourhood(4:6) = map(i-1:i+1,2)
+          neighbourhood(7:9) = map(i-1:i+1,3) 
+
+          DO j=1,9
+            IF (neighbourhood(j) > 0) THEN
+              IF (.NOT. seen(neighbourhood(j))) THEN
+                part_number = part_numbers(neighbourhood(j)) 
+                seen(neighbourhood(j)) = .TRUE.
+                part_sum = part_sum + part_number
+              END IF
+            END IF
+          END DO
+
+        END IF
+      END DO
+
+    END SUBROUTINE check_part_symbol
 
 END PROGRAM gears
