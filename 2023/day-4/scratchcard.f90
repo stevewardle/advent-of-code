@@ -45,4 +45,6 @@ PROGRAM scratchcard
 
   WRITE(*, "(AI0)") "Final total: ", total
 
+  CLOSE(UNIT=input_file)
+
 END PROGRAM scratchcard

@@ -56,4 +56,6 @@ PROGRAM scratchcard
 
   WRITE(*, "(AI0)") "Total number of cards: ", total
 
+  CLOSE(UNIT=input_file)
+
 END PROGRAM scratchcard
