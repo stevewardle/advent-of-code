@@ -11,7 +11,7 @@ PROGRAM seed
     ALLOCATABLE             :: range_starts(:), range_lengths(:)
   INTEGER(KIND=int64)       :: values(n_values)
   LOGICAL                   :: in_range(n_values)
-  INTEGER(KIND=int64)       :: i, j, offset, location
+  INTEGER(KIND=int64)       :: i, j, offset
   CHARACTER(LEN=mapnamelen), &
     PARAMETER               :: mapnames(n_maps) = &
     ["humidity-to-location   ", &
@@ -27,7 +27,6 @@ PROGRAM seed
   CALL read_seed_ranges(input_file, range_starts, range_lengths)
 
   offset = 0
-  location = -1
   outer: DO
     DO i=0,n_values-1
       values(i+1) = offset*n_values + i
@@ -43,7 +42,6 @@ PROGRAM seed
         .AND. (values - range_starts(i)) < range_lengths(i)
       DO j=1,n_values
         IF (in_range(j)) THEN
-          location = j
           EXIT outer
         END IF
       END DO
