@@ -101,7 +101,7 @@ PROGRAM seed
         END IF
 
         READ(line, *) destination, source, span
-        in_range = (values - source >= 0) .AND. (values - source) <= span
+        in_range = (values - source >= 0) .AND. (values - source) < span
 
         DO i=1,SIZE(values)
           IF ((.NOT. seen(i)) .AND. in_range(i)) THEN
