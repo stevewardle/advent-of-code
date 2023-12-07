@@ -37,7 +37,7 @@ PROGRAM camel
   ALLOCATE(ihand(n_hand, n_hands))
   ALLOCATE(bids(n_hands))
   DO i=1,n_hands
-    READ(UNIT=input_file, FMT="(A,5I4)",IOSTAT=ios) hand, bids(i)
+    READ(UNIT=input_file, FMT="(A5,I4)",IOSTAT=ios) hand, bids(i)
     DO j=1,n_hand
       DO k=2,n_cardvalues
         IF (hand(j:j) == card_to_int(k)) THEN
@@ -61,23 +61,20 @@ PROGRAM camel
         seen(ihand(j,i)) = .TRUE.
       END IF
     END DO
-    ! I will go to hell for this
     IF (COUNT(cardcount == 5) == 1) THEN
-      hand_rank(i) = 7   ! 5 of a kind
-    ELSE IF (COUNT(cardcount == 4) == 1) THEN
-      hand_rank(i) = 6   ! 4 of a kind
-    ELSE IF (COUNT(cardcount == 3) == 1) THEN
-      IF (COUNT(cardcount == 2) == 1) THEN
-        hand_rank(i) = 5 ! Full house
-      ELSE
-        hand_rank(i) = 4 ! 3 of a kind
-      END IF
-    ELSE IF (COUNT(cardcount == 2) == 2) THEN
+      hand_rank(i) = 7 ! 5 of a kind
+    ELSE IF ((COUNT(cardcount == 4) == 1) .AND. (COUNT(cardcount == 1) == 1)) THEN
+      hand_rank(i) = 6 ! 4 of a kind
+    ELSE IF ((COUNT(cardcount == 3) == 1) .AND. (COUNT(cardcount == 2) == 1)) THEN
+      hand_rank(i) = 5 ! Full house
+    ELSE IF ((COUNT(cardcount == 3) == 1) .AND. (COUNT(cardcount == 1) == 2)) THEN
+      hand_rank(i) = 4 ! 3 of a kind
+    ELSE IF ((COUNT(cardcount == 2) == 2) .AND. (COUNT(cardcount == 1) == 1)) THEN
       hand_rank(i) = 3 ! 2 pair
-    ELSE IF (COUNT(cardcount == 2) == 1) THEN
+    ELSE IF ((COUNT(cardcount == 2) == 1) .AND. (COUNT(cardcount == 1) == 3)) THEN
       hand_rank(i) = 2 ! Pair
-    ELSE IF (ALL(cardcount == 1)) THEN 
-      hand_rank(i) = 1   ! High
+    ELSE IF (COUNT(cardcount == 1) == 5) THEN 
+      hand_rank(i) = 1 ! High
     ELSE
       PRINT*, "Unrankable hand?!"
       STOP
@@ -105,14 +102,7 @@ PROGRAM camel
   ! Calculate the final result
   total = 0
   DO i=1,n_hands
-    !PRINT*, i, ihand(:,hand_order(i)), hand_rank(hand_order(i)), hand_long(hand_order(i)), bids(hand_order(i))
     total = total + i*bids(hand_order(i))
-    WRITE(*,"(I4,XA,XI0,XI0,XI3,XI10,XI0)") i, card_to_int(ihand(1,hand_order(i)))//&
-      card_to_int(ihand(2,hand_order(i)))//&
-      card_to_int(ihand(3,hand_order(i)))//&
-      card_to_int(ihand(4,hand_order(i)))//&
-      card_to_int(ihand(5,hand_order(i))), hand_rank(hand_order(i)), hand_long(hand_order(i)), bids(hand_order(i)), &
-      i*bids(hand_order(i)), total
   END DO
  
   WRITE(*, "(A,I0)") "Total sum: ", total
