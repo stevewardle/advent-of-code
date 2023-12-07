@@ -50,7 +50,7 @@ PROGRAM seed
     offset = offset + 1
   END DO outer
 
-  WRITE(*, "(AI0)") "Minimum location: ",offset*n_values + j - 1
+  WRITE(*, "(A,I0)") "Minimum location: ",offset*n_values + j - 1
 
   DEALLOCATE(range_lengths)
   DEALLOCATE(range_starts)
@@ -69,7 +69,7 @@ PROGRAM seed
       CHARACTER(LEN=linelen) :: line
       INTEGER(KIND=int32)    :: i, n_entries, ios
 
-      READ(UNIT=input_file, FMT="(7XA)", IOSTAT=ios) line
+      READ(UNIT=funit, FMT="(7X,A)", IOSTAT=ios) line
       n_entries = 0
       DO
         i = INDEX(line, " ")
@@ -81,9 +81,9 @@ PROGRAM seed
         END IF
       END DO
 
-      REWIND(UNIT=input_file)
+      REWIND(UNIT=funit)
       ALLOCATE(entries(n_entries))
-      READ(UNIT=input_file, FMT="(7XA)", IOSTAT=ios) line
+      READ(UNIT=funit, FMT="(7X,A)", IOSTAT=ios) line
       READ(line, *) entries
 
       ALLOCATE(range_starts(SIZE(entries)/2))

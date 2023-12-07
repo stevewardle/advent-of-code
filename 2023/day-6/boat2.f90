@@ -11,9 +11,9 @@ PROGRAM boat
   INTEGER(KIND=int64)       :: times(n_races), distances(n_races), time, distance
 
   OPEN(NEWUNIT=input_file, FILE="input.txt")
-  READ(UNIT=input_file, FMT="(10XA)") line
+  READ(UNIT=input_file, FMT="(10X,A)") line
   READ(line, *) times
-  READ(UNIT=input_file, FMT="(10XA)") line
+  READ(UNIT=input_file, FMT="(10X,A)") line
   READ(line, *) distances
   CLOSE(UNIT=input_file)
 
@@ -22,7 +22,7 @@ PROGRAM boat
   WRITE(line, "(4(I0))") distances
   READ(line, *) distance
 
-  WRITE(*,"(AI0)") "Win count: ", &
+  WRITE(*,"(A,I0)") "Win count: ", &
     CEILING(0.5*(time + SQRT(REAL(time**2 - 4*distance, KIND=real64)))) - &
     CEILING(0.5*(time - SQRT(REAL(time**2 - 4*distance, KIND=real64))))
 

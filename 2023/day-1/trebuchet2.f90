@@ -11,8 +11,8 @@ PROGRAM trebuchet
   INTEGER(KIND=int32)     :: first, last, total=0
   CHARACTER(LEN=linelen)  :: line
 
-  CHARACTER(LEN=5), DIMENSION(19), &
-    PARAMETER             :: match = [ &
+  CHARACTER(LEN=5), &
+    PARAMETER             :: match(19) = [ &
       "one  ", &
       "two  ", &
       "three", &
@@ -34,13 +34,15 @@ PROGRAM trebuchet
       "9    "  & 
   ]
 
-  OPEN(UNIT=input_file, FILE="input.txt")
+  OPEN(NEWUNIT=input_file, FILE="input.txt")
 
   DO 
     READ(UNIT=input_file, FMT=*, IOSTAT=ios) line
     IF (ios == IOSTAT_END) THEN
       EXIT
     END IF
+    first = 0
+    last = 0
     first_idx = linelen 
     last_idx = 0_int32
     DO i=1,SIZE(match)
@@ -64,6 +66,6 @@ PROGRAM trebuchet
 
   CLOSE(UNIT=input_file)
 
-  PRINT*, total
+  WRITE(*, "(A,I0)") "Calibration Sum: ", total
 
 END PROGRAM trebuchet

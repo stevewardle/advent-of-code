@@ -11,13 +11,13 @@ PROGRAM boat
   INTEGER(KIND=int32)       :: time(n_races), distance(n_races)
 
   OPEN(NEWUNIT=input_file, FILE="input.txt")
-  READ(UNIT=input_file, FMT="(10XA)") line
+  READ(UNIT=input_file, FMT="(10X,A)") line
   READ(line, *) time
-  READ(UNIT=input_file, FMT="(10XA)") line
+  READ(UNIT=input_file, FMT="(10X,A)") line
   READ(line, *) distance
   CLOSE(UNIT=input_file)
 
-  WRITE(*,"(AI0)") "Product of win counts: ", &
+  WRITE(*,"(A,I0)") "Product of win counts: ", &
     PRODUCT(CEILING(0.5*(time + SQRT(REAL(time**2 - 4*distance, KIND=real32)))) - &
             CEILING(0.5*(time - SQRT(REAL(time**2 - 4*distance, KIND=real32)))))
 

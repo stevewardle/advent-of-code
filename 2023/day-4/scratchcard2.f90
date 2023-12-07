@@ -18,7 +18,7 @@ PROGRAM scratchcard
 
   OPEN(NEWUNIT=input_file, FILE="input.txt")
 
-  WRITE(fmt_string, "(AI0AI0AI0A)") &
+  WRITE(fmt_string, "(A,I0,A,I0,A,I0,A)") &
     "(A",header,"X",n_winning_numbers,"(I3)X",n_numbers,"(I3))"
 
   process(:) = 1
@@ -54,7 +54,7 @@ PROGRAM scratchcard
 
   END DO
 
-  WRITE(*, "(AI0)") "Total number of cards: ", total
+  WRITE(*, "(A,I0)") "Total number of cards: ", total
 
   CLOSE(UNIT=input_file)
 

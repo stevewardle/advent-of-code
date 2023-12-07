@@ -7,14 +7,14 @@ PROGRAM cube
   INTEGER(KIND=int32)     :: ios, input_file
   INTEGER(KIND=int32), &
     PARAMETER             :: linelen=500
-  CHARACTER(LEN=linelen)  :: line, turn, cuberesult, cubecount, colour
-  INTEGER(KIND=int32)     :: id, n_cubes, i, total=0
+  CHARACTER(LEN=linelen)  :: line, turn, cuberesult, cubecount
+  INTEGER(KIND=int32)     :: id, n_cubes, total=0
   CHARACTER(LEN=5)        :: dummy
   ! 3 for red, green, blue, 10 max buffer for turns in a game
   INTEGER(KIND=int32)     :: n_results, results(3, 10)
   INTEGER(KIND=int32)     :: minimal(3)
 
-  OPEN(UNIT=input_file, FILE="input.txt")
+  OPEN(NEWUNIT=input_file, FILE="input.txt")
 
   DO 
     READ(UNIT=input_file, FMT="(A)", IOSTAT=ios) line
@@ -64,24 +64,17 @@ PROGRAM cube
       END DO
     END DO
 
-    WRITE(*, "(AI0)") "Game: ", id
-    DO i=1,n_results
-      WRITE(*, "(3(AI0))") " R:",results(1,i)," G:",results(2,i)," B:",results(3,i)
-    END DO
-
     ! Calculating the minimal cubesets (RGB)
     minimal(1) = MAXVAL(results(1,1:n_results))
     minimal(2) = MAXVAL(results(2,1:n_results))
     minimal(3) = MAXVAL(results(3,1:n_results))
-
-    WRITE(*, "(3(AI0))") " Minimal set is R:", minimal(1)," G:", minimal(2), " B:", minimal(3)
 
     ! Calculate the power
     total = total + minimal(1)*minimal(2)*minimal(3)
 
   END DO
 
-  WRITE(*, "(AI0)") "Total Cube Power Sum : ", total
+  WRITE(*, "(A,I0)") "Total Cube Power Sum : ", total
 
   CLOSE(UNIT=input_file)
 

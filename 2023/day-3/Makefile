@@ -1,8 +1,19 @@
-all: gears gears2
-.PHONY: all
+NAME=gears
 
-gears: gears.f90
-	gfortran $< -o $@
+all: part1 part2
+.PHONY: all part1 part2 clean
 
-gears2: gears2.f90
-	gfortran $< -o $@
+part1: ${NAME} 
+	time ./$<
+
+part2: ${NAME}2
+	time ./$<
+
+${NAME}: ${NAME}.f90
+	gfortran -Wpedantic -O3 $< -o $@
+
+${NAME}2: ${NAME}2.f90
+	gfortran -Wpedantic -O3 $< -o $@
+
+clean:
+	rm ${NAME} ${NAME}2 2> /dev/null

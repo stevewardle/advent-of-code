@@ -4,7 +4,7 @@ PROGRAM seed
   
   IMPLICIT NONE
 
-  INTEGER(KIND=int32)       :: ios, input_file, i
+  INTEGER(KIND=int32)       :: ios, input_file
   INTEGER(KIND=int32), &
     PARAMETER               :: linelen=500, mapnamelen=50
   INTEGER(KIND=int64), &
@@ -14,18 +14,16 @@ PROGRAM seed
   OPEN(NEWUNIT=input_file, FILE="input.txt")
 
   CALL read_seeds(input_file, values)
-  WRITE(*, "(AI0A)") "Found ", SIZE(values), " seeds" 
 
   DO
     CALL read_to_next_map(input_file, mapname)
     IF (TRIM(mapname) == "") THEN
       EXIT
     END IF
-    PRINT*, "Processing: "//TRIM(mapname)
     CALL filter_values(input_file, values)
   END DO
 
-  WRITE(*,"(AI0)") "Closest Location: ", MINVAL(values)
+  WRITE(*,"(A,I0)") "Closest Location: ", MINVAL(values)
 
   DEALLOCATE(values)
   CLOSE(UNIT=input_file)
@@ -41,7 +39,7 @@ PROGRAM seed
       CHARACTER(LEN=linelen) :: line
       INTEGER(KIND=int32)    :: i, n_seeds, ios
 
-      READ(UNIT=input_file, FMT="(7XA)", IOSTAT=ios) line
+      READ(UNIT=funit, FMT="(7X,A)", IOSTAT=ios) line
       n_seeds = 0
       DO
         i = INDEX(line, " ")
@@ -52,9 +50,9 @@ PROGRAM seed
           EXIT
         END IF
       END DO
-      REWIND(UNIT=input_file)
+      REWIND(UNIT=funit)
       ALLOCATE(seeds(n_seeds))
-      READ(UNIT=input_file, FMT="(7XA)", IOSTAT=ios) line
+      READ(UNIT=funit, FMT="(7X,A)", IOSTAT=ios) line
       READ(line, *) seeds
 
     END SUBROUTINE read_seeds

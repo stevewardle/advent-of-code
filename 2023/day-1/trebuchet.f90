@@ -11,7 +11,7 @@ PROGRAM trebuchet
   INTEGER(KIND=int32)     :: total = 0
   CHARACTER(LEN=linelen)  :: line
 
-  OPEN(UNIT=input_file, FILE="input.txt")
+  OPEN(NEWUNIT=input_file, FILE="input.txt")
 
   DO 
     READ(UNIT=input_file, FMT=*, IOSTAT=ios) line
@@ -35,6 +35,6 @@ PROGRAM trebuchet
 
   CLOSE(UNIT=input_file)
 
-  PRINT*, total
+  WRITE(*, "(A,I0)") "Calibration Sum: ", total
 
 END PROGRAM trebuchet

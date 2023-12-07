@@ -17,7 +17,8 @@ PROGRAM scratchcard
 
   OPEN(NEWUNIT=input_file, FILE="input.txt")
 
-  WRITE(fmt_string, "(AI0AI0AI0A)") "(A",header,"X",n_winning_numbers,"(I3)X",n_numbers,"(I3))"
+  WRITE(fmt_string, "(A,I0,A,I0,A,I0,A)") &
+    "(A",header,"X",n_winning_numbers,"(I3)X",n_numbers,"(I3))"
 
   DO
     READ(UNIT=input_file, FMT=TRIM(fmt_string), IOSTAT=ios) id, winning_numbers, numbers
@@ -43,7 +44,7 @@ PROGRAM scratchcard
     END IF
   END DO
 
-  WRITE(*, "(AI0)") "Final total: ", total
+  WRITE(*, "(A,I0)") "Final total: ", total
 
   CLOSE(UNIT=input_file)
 

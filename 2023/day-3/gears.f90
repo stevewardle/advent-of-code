@@ -4,7 +4,7 @@ PROGRAM gears
   
   IMPLICIT NONE
 
-  INTEGER(KIND=int32)       :: ios, input_file, i
+  INTEGER(KIND=int32)       :: ios, input_file
 
   INTEGER(KIND=int32), &
     PARAMETER               :: query_len=500
@@ -13,7 +13,6 @@ PROGRAM gears
   INTEGER(KIND=int32)       :: line_len, part_sum, total = 0
   CHARACTER(LEN=:), &
     ALLOCATABLE             :: line_buffer(:)
-  CHARACTER(LEN=5)          :: fmt_string
   INTEGER(KIND=int32), &
     ALLOCATABLE             :: part_numbers(:), part_number_map(:,:)
 
@@ -68,7 +67,7 @@ PROGRAM gears
   DEALLOCATE(line_buffer)
   CLOSE(input_file)
 
-  WRITE(*,"(AI0)") "Total sum of part numbers: ", total
+  WRITE(*,"(A,I0)") "Total sum of part numbers: ", total
 
   CONTAINS
     SUBROUTINE buffer_next(buffer, funit)
@@ -80,10 +79,10 @@ PROGRAM gears
       INTEGER(KIND=int32)     :: ios
       ! Shift the buffer to lose the first line then read in the
       ! next record into the end of the buffer
-      line_buffer = EOSHIFT(line_buffer,1)
-      READ(UNIT=funit, FMT="(A)", IOSTAT=ios) line_buffer(3)
+      buffer = EOSHIFT(buffer,1)
+      READ(UNIT=funit, FMT="(A)", IOSTAT=ios) buffer(3)
       IF (ios == IOSTAT_END) THEN
-        line_buffer(3) = ""
+        buffer(3) = ""
       END IF
     END SUBROUTINE buffer_next
 
