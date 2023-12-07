@@ -41,7 +41,7 @@ PROGRAM camel
   ALLOCATE(ihand(n_hand, n_hands))
   ALLOCATE(bids(n_hands))
   DO i=1,n_hands
-    READ(UNIT=input_file, FMT="(A5,I4)",IOSTAT=ios) hand, bids(i)
+    READ(UNIT=input_file, FMT="(A5,XI4)",IOSTAT=ios) hand, bids(i)
     DO j=1,n_hand
       DO k=2,n_cardvalues
         IF (hand(j:j) == card_to_int(k)) THEN
