@@ -22,7 +22,8 @@ PROGRAM camel
     PARAMETER               :: card_to_int(n_cardvalues) = &
     ["%","2","3","4","5","6","7","8","9","T","J","Q","K","A"]
 
-  ! Find number of hands
+  ! Find number of hands - basically have to skim the file to the end
+  ! counting the lines then rewind it afterwards
   OPEN(NEWUNIT=input_file, FILE="input.txt")
   n_hands = 0
   DO
@@ -33,7 +34,10 @@ PROGRAM camel
     n_hands = n_hands + 1
   END DO
   REWIND(UNIT=input_file)
-  ! Read bids and hands and convert hands to integer arrays
+  ! Read bids and hands and convert hands to integer arrays -
+  ! Fortran doesn't do string processing well. Uses the parameter
+  ! array above to translate "2" = 2 up to "A" = 14 and stores
+  ! them in a 5-element long array of all hands
   ALLOCATE(ihand(n_hand, n_hands))
   ALLOCATE(bids(n_hands))
   DO i=1,n_hands
@@ -49,18 +53,23 @@ PROGRAM camel
   END DO
   CLOSE(UNIT=input_file)
 
-  ! Categorise hands
+  ! Categorise hands - each type of hand has a rank with 7 being
+  ! the best (5 of a kind) down to 1 being a (card high) hand
   ALLOCATE(hand_rank(n_hands))
   hand_rank(:) = 0
   DO i=1,n_hands
     seen(:) = .FALSE.
     cardcount(:) = 0
+    ! Create a count of how many of each unique card value exist
+    ! in each hand (with only one count value per card value)
     DO j=1,n_hand
       IF (.NOT. seen(ihand(j,i))) THEN
         cardcount(j) = COUNT(ihand(:,i) == ihand(j,i))
         seen(ihand(j,i)) = .TRUE.
       END IF
     END DO
+    ! Can now apply the logic from the puzzle description more or less verbatim
+    ! to figure out what rank the given hand has
     IF (COUNT(cardcount == 5) == 1) THEN
       hand_rank(i) = 7 ! 5 of a kind
     ELSE IF ((COUNT(cardcount == 4) == 1) .AND. (COUNT(cardcount == 1) == 1)) THEN
@@ -81,25 +90,32 @@ PROGRAM camel
     END IF
   END DO
 
-  ! Now create a longform hand number for each hand
+  ! Create a long-form hand number for each hand
   ! that leads with the hand rank and then the numbers in
-  ! the hand as a single long number
+  ! the hand as a single long number.  This makes it so
+  ! the rank of the hand from above takes precedence followed
+  ! by each card value in the hand also in order
   ALLOCATE(sortmask(n_hands))
   ALLOCATE(hand_long(n_hands))
   ALLOCATE(hand_order(n_hands))
   DO i=1,n_hands
+    longform = ""
     WRITE(longform, "(I1,5I2.2)") hand_rank(i),ihand(:,i)
     READ(longform, *) hand_long(i)
   END DO
 
-  ! Sorting this array will provide the order for the hand
+  ! A fairly inefficient sorting method using a minimum
+  ! location intrinsic that masks out each minimum value
+  ! as it finds it whilst collecting the index of each
+  ! into an array
   sortmask(:) = .TRUE.
   DO i=1,n_hands
     hand_order(i) = MINLOC(hand_long, 1, sortmask)
     sortmask(hand_order(i)) = .FALSE.
   END DO
 
-  ! Calculate the final result
+  ! Now we can iterate over the list of hands + bids in
+  ! the order given by the above to calculate the result
   total = 0
   DO i=1,n_hands
     total = total + i*bids(hand_order(i))
