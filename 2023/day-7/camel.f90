@@ -6,7 +6,7 @@ PROGRAM camel
 
   INTEGER(KIND=int32)       :: input_file, ios
   INTEGER(KIND=int32), &
-    PARAMETER               :: n_hand=5, n_cardvalues=14, n_handranks=7
+    PARAMETER               :: n_hand=5, n_cardvalues=14
   INTEGER(KIND=int32)       :: i, j, k, total
   INTEGER(KIND=int32)       :: n_hands, cardcount(n_hand)
   LOGICAL                   :: seen(n_cardvalues)
