@@ -8,7 +8,7 @@ PROGRAM mirage
   INTEGER(KIND=int32), &
     PARAMETER               :: linelen=500, max_degrees=100
   INTEGER(KIND=int32), &
-    ALLOCATABLE             :: history(:), work_array(:,:)
+    ALLOCATABLE             :: history(:), work_array(:,:), flip_history(:)
 
   OPEN(NEWUNIT=input_file, FILE="input.txt")
 
@@ -18,12 +18,19 @@ PROGRAM mirage
     IF (.NOT. ALLOCATED(history)) THEN
       EXIT
     END IF
+    
+    ALLOCATE(flip_history(SIZE(history)))
+    DO i=1,SIZE(history)
+      flip_history(SIZE(history)-i+1) = history(i)
+    END DO
+    history = flip_history
+    DEALLOCATE(flip_history)
 
     ALLOCATE(work_array(max_degrees, SIZE(history)+1))
 
     work_array(1,:) = history
     DO i=2,max_degrees
-      work_array(i,:) = EOSHIFT(work_array(i-1,:),1) - work_array(i-1,:)
+      work_array(i,:) = work_array(i-1,:) - EOSHIFT(work_array(i-1,:),1)
       IF (ALL(work_array(i,1:SIZE(history) - i) == 0)) THEN
         EXIT
       END IF
@@ -35,7 +42,7 @@ PROGRAM mirage
         work_array(j,last_idx+1) = 0
         CYCLE
       END IF
-      work_array(j,last_idx+1) = work_array(j+1,last_idx) + work_array(j,last_idx) 
+      work_array(j,last_idx+1) = work_array(j,last_idx) - work_array(j+1,last_idx)
     END DO
 
     total = total + work_array(1,SIZE(history)+1)
