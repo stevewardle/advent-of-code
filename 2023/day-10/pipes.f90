@@ -177,8 +177,8 @@ PROGRAM pipes
       END IF
       ! Shifting the direction array by 2 positions will
       ! flip it because it swaps N/S and E/W positions
-      ! this allows us to use to to test against the connections
-      ! that the targetted point has
+      ! this allows us to use equivalence to test against
+      ! the connections that the targetted point has
       connection = CSHIFT(direction, 2)
       connection = (grid(new_row, new_column,:) .NEQV. connection)
       ! If the above returns a single value it was a valid point
