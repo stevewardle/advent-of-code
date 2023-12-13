@@ -1,24 +1,30 @@
 PROGRAM springs
-  USE, INTRINSIC:: ISO_FORTRAN_ENV, ONLY: int32, IOSTAT_END
+  USE, INTRINSIC:: ISO_FORTRAN_ENV, ONLY: int32, int64, IOSTAT_END
   IMPLICIT NONE
-  INTEGER(KIND=int32)       :: input_file, n_valid, total
+  INTEGER(KIND=int32)       :: input_file, n_cache
+  INTEGER(KIND=int64)       :: n_valid, total
   INTEGER(KIND=int32), &
-    PARAMETER               :: line_len=500
+    PARAMETER               :: line_len=500, cache_size=1000
   INTEGER(KIND=int32), &
-    ALLOCATABLE             :: damaged(:)
+    ALLOCATABLE             :: damaged(:), damaged_cache(:,:)
+  INTEGER(KIND=int64), &
+    ALLOCATABLE             :: valid_cache(:)
   CHARACTER(LEN=1), &
-    ALLOCATABLE             :: record(:)
+    ALLOCATABLE             :: record(:), record_cache(:,:)
 
   OPEN(NEWUNIT=input_file, FILE="input.txt")
 
   total = 0
   DO
     CALL read_next_input(input_file, record, damaged)
+    CALL create_cache(record, damaged)
     IF (.NOT. ALLOCATED (record)) THEN
       EXIT
     END IF
+
     CALL calc_arrangements(record, damaged, n_valid)
     total = total + n_valid
+
   END DO
 
   WRITE(*, "(A,I0)") "Total Spring Arrangements: ", total
@@ -27,17 +33,82 @@ PROGRAM springs
 
   CONTAINS
 
+    SUBROUTINE create_cache(record, damaged)
+      IMPLICIT NONE
+      CHARACTER(LEN=1), &
+        ALLOCATABLE, &
+        INTENT(IN)              :: record(:)
+      INTEGER(KIND=int32), &
+        ALLOCATABLE, &
+        INTENT(IN)              :: damaged(:)
+
+      IF (ALLOCATED(record_cache)) DEALLOCATE(record_cache)
+      IF (ALLOCATED(damaged_cache)) DEALLOCATE(damaged_cache)
+      IF (ALLOCATED(valid_cache)) DEALLOCATE(valid_cache)
+
+      IF (.NOT. ALLOCATED(record)) RETURN
+      n_cache = 0
+      ALLOCATE(record_cache(SIZE(record), cache_size))
+      ALLOCATE(damaged_cache(SIZE(damaged), cache_size))
+      ALLOCATE(valid_cache(cache_size))
+
+    END SUBROUTINE create_cache
+
+    SUBROUTINE read_cache(record, damaged, n_valid)
+      IMPLICIT NONE
+       CHARACTER(LEN=1), &
+        INTENT(IN)              :: record(:)
+      INTEGER(KIND=int32), &
+        INTENT(IN)              :: damaged(:)     
+      INTEGER(KIND=int64), &
+        INTENT(OUT)             :: n_valid
+      INTEGER(KIND=int32)       :: i
+        n_valid = -1
+        IF (n_cache > 0) THEN
+          DO i=1,n_cache
+            IF (ALL(damaged_cache(:,i) == damaged) &
+              .AND. ALL(record_cache(:,i) == record)) THEN
+              n_valid = valid_cache(i)
+              RETURN
+            END IF
+          END DO
+        END IF
+
+    END SUBROUTINE read_cache
+
+    SUBROUTINE write_cache(record, damaged, n_valid)
+      IMPLICIT NONE
+       CHARACTER(LEN=1), &
+        INTENT(IN)              :: record(:)
+      INTEGER(KIND=int32), &
+        INTENT(IN)              :: damaged(:)     
+      INTEGER(KIND=int64), &
+        INTENT(IN)              :: n_valid
+
+        n_cache = n_cache + 1
+        damaged_cache(:, n_cache) = damaged
+        record_cache(:, n_cache) = record
+        valid_cache(n_cache) = n_valid
+
+    END SUBROUTINE write_cache
+
     RECURSIVE SUBROUTINE calc_arrangements(record, damaged, n_valid)
       IMPLICIT NONE
       CHARACTER(LEN=1), &
         INTENT(IN)              :: record(:)
       INTEGER(KIND=int32), &
         INTENT(IN)              :: damaged(:)
-      INTEGER(KIND=int32), &
+      INTEGER(KIND=int64), &
         INTENT(OUT)             :: n_valid
-      INTEGER(KIND=int32)       :: i, sub_valid, damaged_new(SIZE(damaged))
+      INTEGER(KIND=int32)       :: i, damaged_new(SIZE(damaged))
+      INTEGER(KIND=int64)       :: sub_valid
       CHARACTER(LEN=1)          :: record_new(SIZE(record))
 
+      ! If we already know the answer (as we have called this routine
+      ! with these exact arguments before, just return it from cache)
+      CALL read_cache(record, damaged, n_valid)
+      IF (n_valid /= -1) RETURN
+        
       n_valid = 0
       i = 0
       ! Recursion always gets a little wild, so bear with me...
@@ -52,6 +123,8 @@ PROGRAM springs
         ! the loop and routine and head back up the 
         ! call-stack
         IF (i == 0) THEN
+          ! Save this valid result to the cache
+          CALL write_cache(record, damaged, n_valid)
           EXIT
         END IF
         ! If we *have* found a valid place, construct a
@@ -130,7 +203,10 @@ PROGRAM springs
         ALLOCATABLE, &
         INTENT(INOUT)           :: damaged(:)
       CHARACTER(LEN=line_len)   :: line
-      INTEGER(KIND=int32)       :: i, j, ios, n_records, n_damaged
+      INTEGER(KIND=int32)       :: i, j, ios, n_records, n_damaged, &
+                                   n_records_expanded, offset
+      INTEGER(KIND=int32), &
+        PARAMETER               :: expand=5
 
       IF (ALLOCATED(record)) DEALLOCATE(record)
       IF (ALLOCATED(damaged)) DEALLOCATE(damaged)
@@ -140,15 +216,24 @@ PROGRAM springs
       END IF
 
       n_records = INDEX(line, " ") - 1
+
+      ! Expand by 5 for part 2
+      n_records_expanded = n_records*expand + (expand - 1)
+
       ! Pad our record array with blanks to make comparisons easier
       ! later i.e. without going out of bounds
-      ALLOCATE(record(n_records + 2))
-      DO i=1,n_records
-        record(i+1) = line(i:i)
+      ALLOCATE(record(n_records_expanded + 2))
+      offset = 0
+      DO j=1,expand
+        DO i=1,n_records
+          record(i+1 + (j-1)*n_records + offset) = line(i:i)
+        END DO
+        offset = offset + 1
+        record(i + (j-1)*n_records + offset) = "?"
       END DO
       record(1) = "."
-      record(n_records + 2) = "."
-     
+      record(n_records_expanded + 2) = "."
+    
       i = 0
       n_damaged = 1
       DO
@@ -159,8 +244,12 @@ PROGRAM springs
         i = i + j
         n_damaged = n_damaged + 1
       END DO
-      ALLOCATE(damaged(n_damaged))
-      READ(line(n_records+2:line_len), *) damaged
+      ! Pad the damage array as well
+      ALLOCATE(damaged(n_damaged*expand))
+      READ(line(n_records+2:line_len), *) damaged(1:n_damaged)
+      DO i=2,expand
+        damaged(n_damaged*(i-1)+1:i*n_damaged) = damaged(1:n_damaged)
+      END DO
 
     END SUBROUTINE read_next_input
 

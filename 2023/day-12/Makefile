@@ -13,7 +13,7 @@ ${NAME}: ${NAME}.f90
 	gfortran -Wall -Wpedantic -O3 $< -o $@
 
 ${NAME}2: ${NAME}2.f90
-	gfortran -Wall -Wpedantic -O3 $< -o $@
+	gfortran -Wall -Wpedantic -Wno-maybe-uninitialized -O3 $< -o $@
 
 clean:
 	rm ${NAME} ${NAME}2 2> /dev/null
