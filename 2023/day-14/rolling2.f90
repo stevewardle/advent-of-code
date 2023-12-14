@@ -57,7 +57,7 @@ PROGRAM rolling
     END IF
     DO j=1,4
       CALL roll_rocks(grid)
-      CALL rotate_grid_minus_90(grid, 1)
+      CALL rotate_grid_90(grid, 1)
     END DO
   END DO
 
@@ -76,7 +76,7 @@ PROGRAM rolling
   DO i=1,start 
     DO j=1,4
       CALL roll_rocks(grid)
-      CALL rotate_grid_minus_90(grid, 1)
+      CALL rotate_grid_90(grid, 1)
     END DO
   END DO
   CALL calc_load(grid, total)
@@ -104,7 +104,7 @@ PROGRAM rolling
 
     END SUBROUTINE hash_grid
 
-    SUBROUTINE rotate_grid_minus_90(grid, times)
+    SUBROUTINE rotate_grid_90(grid, times)
       IMPLICIT NONE
       INTEGER(KIND=int32), &
         INTENT(INOUT)        :: grid(:,:)
@@ -123,7 +123,7 @@ PROGRAM rolling
         grid = rotated
       END DO
 
-    END SUBROUTINE rotate_grid_minus_90
+    END SUBROUTINE rotate_grid_90
 
     SUBROUTINE calc_load(grid, load)
       IMPLICIT NONE
