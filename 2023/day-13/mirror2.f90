@@ -37,13 +37,17 @@ PROGRAM mirror
       INTEGER(KIND=int32), &
         INTENT(OUT)             :: points_below
       LOGICAL                   :: grid_shift(SIZE(grid,1),SIZE(grid,2))
-      LOGICAL                   :: mirror_valid(SIZE(grid,2))
+      INTEGER(KIND=int32)       :: valid_reflections(SIZE(grid,2))
+      INTEGER(KIND=int32)       :: possible_skips(SIZE(grid,2))
       INTEGER(KIND=int32)       :: i, j
 
-      mirror_valid(:) = .TRUE.
+      valid_reflections(:) = 0
+      possible_skips(:) = 0
       points_below = 0
       ! Iterate to half the length of the grid (the maximum distance
-      ! a reflection can be from the edge)
+      ! a reflection can be from the edge) - each iteration is
+      ! considering the next level of reflection - no need to go
+      ! beyond half the grid size because that would not be valid
       DO i=1,SIZE(grid,2)/2
         ! Translates to compare pairs of positions radiating outwards
         ! so i=1 compares each point X to its neighbour X+1
@@ -51,25 +55,34 @@ PROGRAM mirror
         !    i=3 compares X-2 to X+3 (second reflection) and so on
         grid_shift = (EOSHIFT(grid(:,:),-(i-1),DIM=2) &
                 .EQV. EOSHIFT(grid(:,:),i,DIM=2))
-        ! Now compare relevant points (gradually shrinking) to see if
+        ! Now compare relevant points (gradually shrinking so that
+        ! we never compare things out of bounds) to see if
         ! a given position is still valid as a mirror
         DO j=i,SIZE(grid,2)-i
-          ! The previous reflections need to have all matched at the
-          ! given position for that position to still be a valid
-          ! mirror
-          mirror_valid(j) = mirror_valid(j) &
-            .AND. (ALL(grid_shift(:,j)) .EQV. .TRUE.)
+          ! Accumulate count of reflection levels that matched
+          IF (ALL(grid_shift(:,j)) .EQV. .TRUE.) THEN
+            valid_reflections(j) = valid_reflections(j) + 1
+          END IF
+          ! Accumulate count of reflections levels that *could*
+          ! match if one character were swapped
+          IF (COUNT(grid_shift(:,j)) == SIZE(grid,1)-1) THEN
+            possible_skips(j) = possible_skips(j) + 1
+          END IF
         END DO
       END DO
 
-      ! Find the valid mirror position, if it exists - this will
-      ! be a point which has a valid mirror position the right
-      ! distance from the edge of the grid
+      ! Now have the info needed to figure out solution
+      points_below = 0
       DO i=1,SIZE(grid,2)/2
-        IF (mirror_valid(i)) THEN
+        ! Looking for places where a mirror is exactly
+        ! 1 reflection level away from having enough levels
+        ! to reach the edge of the grid AND has the potential
+        ! for one level to be skipped by fixing a smudge
+        IF ((valid_reflections(i) == i-1) .AND. (possible_skips(i) == 1)) THEN
           points_below = i
           EXIT
-        ELSE IF (mirror_valid(SIZE(grid,2)-i)) THEN
+        ELSE IF ((valid_reflections(SIZE(grid,2)-i) == i-1) &
+            .AND. possible_skips(SIZE(grid,2)-i) == 1) THEN
           points_below = SIZE(grid,2)-i
           EXIT
         END IF
