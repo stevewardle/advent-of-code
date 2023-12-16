@@ -9,19 +9,45 @@ PROGRAM beams
   INTEGER(KIND=int32), &
     ALLOCATABLE             :: energised(:,:)
   INTEGER(KIND=int32), &
-    PARAMETER               :: e_ns=1, e_ew=2, e_cross=3, e_obj=4
+    PARAMETER               :: e_ns=1, e_ew=2, e_obj=3
   INTEGER(KIND=int32), &
     PARAMETER               :: empty=0, v_split=1, h_split=2,  &
                                r_mirror=3, l_mirror=4
   CHARACTER(LEN=1), &
     PARAMETER               :: symbols(0:4) = &
                                  [".", "|", "-", "/", "\"]
+  INTEGER(KIND=int32)       :: i, maximum
 
   CALL read_input("input.txt", grid)
   ALLOCATE(energised(SIZE(grid,1), SIZE(grid,2)))
   energised(:,:) = 0
   CALL track_beam(1,1,0,1)
   WRITE(*,"(A,I0)") "Energised tiles: ", COUNT(energised /= 0)
+
+  ! Now do all combinations of the edge points
+  maximum = 0
+  DO i=1,SIZE(grid,1)
+    energised(:,:) = 0
+    CALL track_beam(i,1,0,1)
+    maximum = MAXVAL([maximum, COUNT(energised /= 0)])
+
+    energised(:,:) = 0
+    CALL track_beam(i,SIZE(grid,2),0,-1)
+    maximum = MAXVAL([maximum, COUNT(energised /= 0)])
+  END DO
+
+  DO i=1,SIZE(grid,2)
+    energised(:,:) = 0
+    CALL track_beam(1,i,1,0)
+    maximum = MAXVAL([maximum, COUNT(energised /= 0)])
+    energised(:,:) = 0
+    CALL track_beam(SIZE(grid,1),i,-1,0)
+    maximum = MAXVAL([maximum, COUNT(energised /= 0)])
+  END DO
+
+  WRITE(*,"(A,I0)") "Maximum possible Energised tiles: ", maximum
+  DEALLOCATE(energised)
+  DEALLOCATE(grid)
 
   CONTAINS
     RECURSIVE SUBROUTINE track_beam(row, col, dir_s, dir_e)
@@ -69,6 +95,7 @@ PROGRAM beams
             energised(cur_row, cur_col) = e_ew
           END IF
         CASE (r_mirror)
+          energised(cur_row, cur_col) = e_obj
           IF (cur_dir_e /= 0) THEN
             cur_dir_s = -cur_dir_e
             cur_dir_e = 0
@@ -76,8 +103,8 @@ PROGRAM beams
             cur_dir_e = -cur_dir_s
             cur_dir_s = 0
           END IF
-          energised(cur_row, cur_col) = e_obj
         CASE (l_mirror)
+          energised(cur_row, cur_col) = e_obj
           IF (cur_dir_e /= 0) THEN
             cur_dir_s = cur_dir_e
             cur_dir_e = 0
@@ -85,31 +112,30 @@ PROGRAM beams
             cur_dir_e = cur_dir_s
             cur_dir_s = 0
           END IF
-          energised(cur_row, cur_col) = e_obj
         CASE (v_split)
           energised(cur_row, cur_col) = e_obj
           IF (cur_dir_e /= 0) THEN
             ! Split the beam here by calling ourselves
-            ! for the two new beam directions
+            ! for the two new beam directions (in the 
+            ! east/west case only - north/south the beam
+            ! just carries on)
             CALL track_beam(cur_row + 1, cur_col,  1, 0)
             CALL track_beam(cur_row - 1, cur_col, -1, 0)
             ! And then stop
             EXIT
           END IF
-          ! For the north/south case the beam
-          ! carries on
         CASE (h_split)
           energised(cur_row, cur_col) = e_obj
           IF (cur_dir_s /= 0) THEN
-            ! Split the beam the other way
+            ! Split the beam the other way (this time
+            ! only in the north/south case)
             CALL track_beam(cur_row, cur_col + 1, 0,  1)
             CALL track_beam(cur_row, cur_col - 1, 0, -1)
             ! And stop
             EXIT
           END IF
-          ! For the east/west case the beam
-          ! carries on
         CASE DEFAULT
+          ! Shouldn't happen, but abort if it does
           CALL ABORT()
         END SELECT
 
