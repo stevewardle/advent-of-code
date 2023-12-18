@@ -9,31 +9,40 @@ PROGRAM crucible
   INTEGER(KIND=int32)       :: heatloss
 
   CALL read_input("input.txt", grid)
-  CALL find_path(grid, heatloss)
-  
+  CALL find_path(grid, 1, 3, heatloss)
+
+  WRITE(*, "(A,I0)") "Minimum heatloss: ", heatloss
+
+  CALL find_path(grid, 4, 10, heatloss)
+  WRITE(*, "(A,I0)") "Minimum heatloss (Ultra Crucibles): ", heatloss
+
   DEALLOCATE(grid)
 
   CONTAINS
 
-    SUBROUTINE find_path(grid, min_heatloss)
+    SUBROUTINE find_path(grid, min_steps, max_steps, min_heatloss)
       IMPLICIT NONE
       INTEGER(KIND=int32), &
-        INTENT(IN)              :: grid(:,:)
+        INTENT(IN)              :: grid(:,:), min_steps, max_steps
       INTEGER(KIND=int32), &
         INTENT(OUT)             :: min_heatloss
       INTEGER(KIND=int32), &
-        ALLOCATABLE             :: heatloss(:,:,:)
+        ALLOCATABLE             :: heatloss(:,:,:), &
+                                   scan1_rowcol(:,:), scan2_rowcol(:,:)
       LOGICAL, &
         ALLOCATABLE             :: not_done(:,:,:)
       INTEGER(KIND=int32), &
         PARAMETER               :: dir_ns=1, dir_ew=2
-      INTEGER(KIND=int32)       :: cur_rowcoldir(3), row, col, dir, i, j, &
+      INTEGER(KIND=int32)       :: cur_rowcoldir(3), row, col, dir, i, &
                                    tgt_row, tgt_col, hloss, new_dir
-      INTEGER(KIND=int32)       :: scan1_rowcol(3,2), scan2_rowcol(3,2)
 
       min_heatloss = 0
       ALLOCATE(heatloss(SIZE(grid,1),SIZE(grid,2),2))
       ALLOCATE(not_done(SIZE(grid,1),SIZE(grid,2),2))
+
+      ! Initialise scan arrays
+      ALLOCATE(scan1_rowcol(max_steps, 2))
+      ALLOCATE(scan2_rowcol(max_steps, 2))
 
       ! Initialise loss map to be large numbers
       ! no direction and all points unvisited
@@ -43,9 +52,8 @@ PROGRAM crucible
       ! Starting point
       heatloss(1,1,dir_ns) = 0 
       heatloss(1,1,dir_ew) = 0
-      j = 0
+
       outer: DO
-        j = j + 1
         ! Find minimum unvisited point
         cur_rowcoldir = MINLOC(heatloss, MASK=not_done)
         row = cur_rowcoldir(1)
@@ -58,21 +66,21 @@ PROGRAM crucible
         SELECT CASE (dir)
         CASE (dir_ns)
           new_dir = dir_ew
-          DO i=1,3
-            ! First 3 points go east
+          DO i=1,max_steps
+            ! First scan goes east
             scan1_rowcol(i,1) = row
             scan1_rowcol(i,2) = col + i
-            ! Next 3 go west
+            ! Next scan goes west
             scan2_rowcol(i,1) = row
             scan2_rowcol(i,2) = col - i
           END DO
         CASE (dir_ew)
           new_dir = dir_ns
-          DO i=1,3
-            ! First 3 points go south
+          DO i=1,max_steps
+            ! First scan goes south
             scan1_rowcol(i,1) = row + i
             scan1_rowcol(i,2) = col
-            ! Next 3 go north
+            ! Next scan goes north
             scan2_rowcol(i,1) = row - i
             scan2_rowcol(i,2) = col
           END DO
@@ -83,7 +91,7 @@ PROGRAM crucible
 
         ! 1st direction scan
         hloss = heatloss(row, col, dir)
-        DO i=1,3
+        DO i=1,max_steps
           tgt_row = scan1_rowcol(i,1)
           tgt_col = scan1_rowcol(i,2)
           
@@ -98,10 +106,15 @@ PROGRAM crucible
           hloss = &
             hloss + grid(tgt_row, tgt_col)
           
+          ! If we have a minimum we aren't in range of yet
+          ! loop back around
+          IF (i < min_steps) CYCLE
+
           ! If this step would incur a lower loss
           ! than any existing one, replace it
           IF (hloss < heatloss(tgt_row, tgt_col, new_dir)) THEN
             heatloss(tgt_row, tgt_col, new_dir) = hloss
+            ! If we have reached the target point, we are done
             IF (tgt_row == SIZE(grid,1) .AND. tgt_col == SIZE(grid,2)) THEN
               EXIT outer
             END IF
@@ -110,7 +123,7 @@ PROGRAM crucible
 
         ! 2nd direction scan
         hloss = heatloss(row, col, dir)
-        DO i=1,3
+        DO i=1,max_steps
           tgt_row = scan2_rowcol(i,1)
           tgt_col = scan2_rowcol(i,2)
           
@@ -125,10 +138,15 @@ PROGRAM crucible
           hloss = &
             hloss + grid(tgt_row, tgt_col)
           
+          ! If we have a minimum we aren't in range of yet
+          ! loop back around
+          IF (i < min_steps) CYCLE
+
           ! If this step would incur a lower loss
           ! than any existing one, replace it
           IF (hloss < heatloss(tgt_row, tgt_col, new_dir)) THEN
             heatloss(tgt_row, tgt_col, new_dir) = hloss
+            ! If we have reached the target point, we are done
             IF (tgt_row == SIZE(grid,1) .AND. tgt_col == SIZE(grid,2)) THEN
               EXIT outer
             END IF
@@ -141,8 +159,10 @@ PROGRAM crucible
 
       END DO outer
 
-      PRINT*, heatloss(SIZE(grid,1), SIZE(grid,2),:)
+      min_heatloss = MINVAL(heatloss(SIZE(grid,1), SIZE(grid,2),:))
 
+      DEALLOCATE(scan2_rowcol)
+      DEALLOCATE(scan1_rowcol)
       DEALLOCATE(not_done)
       DEALLOCATE(heatloss)
 
