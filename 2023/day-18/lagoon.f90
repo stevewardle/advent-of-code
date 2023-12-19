@@ -1,4 +1,4 @@
-PROGRAM crucible
+PROGRAM lagoon
   
   USE, INTRINSIC:: ISO_FORTRAN_ENV, ONLY: int32, int64, IOSTAT_END
   IMPLICIT NONE
@@ -181,4 +181,4 @@ PROGRAM crucible
 
     END SUBROUTINE read_plan
 
-END PROGRAM crucible
+END PROGRAM lagoon
