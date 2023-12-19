@@ -1,95 +1,67 @@
 PROGRAM crucible
   
-  USE, INTRINSIC:: ISO_FORTRAN_ENV, ONLY: int32, IOSTAT_END
+  USE, INTRINSIC:: ISO_FORTRAN_ENV, ONLY: int32, int64, IOSTAT_END
   IMPLICIT NONE
 
   TYPE dig_step
     CHARACTER(LEN=1)    :: direction
-    INTEGER(KIND=int32) :: distance
+    INTEGER(KIND=int64) :: distance
     CHARACTER(LEN=7)    :: colour
   END TYPE dig_step
 
   TYPE trench_wall
-    INTEGER(KIND=int32) :: row, col
-    CHARACTER(LEN=7)    :: colour
-    INTEGER(KIND=int32) :: orientation
+    INTEGER(KIND=int64) :: row, col
   END TYPE trench_wall
 
   CHARACTER(LEN=1), &
     PARAMETER           :: dir_u="U", dir_d="D", &
                            dir_r="R", dir_l="L"
-  INTEGER(KIND=int32), &
-    PARAMETER           :: orient_ew=1, orient_ns=2, &
-                           orient_corner=3
   TYPE(dig_step), &
     ALLOCATABLE         :: dig_plan(:) 
   TYPE(trench_wall), &
     ALLOCATABLE         :: trench(:)
-  INTEGER(KIND=int32)   :: volume
+  INTEGER(KIND=int64)   :: trench_length, volume
 
   CALL read_input("input.txt", dig_plan)
   CALL dig_trench(dig_plan, trench)
-  CALL calc_lagoon(trench, volume)
+
+  trench_length = SUM(dig_plan(:)%distance)
+  CALL calc_lagoon(trench, trench_length, volume)
 
   WRITE(*,"(A,I0)") "Total Lagoon Volume: ", volume
+
+  CALL expand_input(dig_plan)
+  CALL dig_trench(dig_plan, trench)
+
+  trench_length = SUM(dig_plan(:)%distance)
+  CALL calc_lagoon(trench, trench_length, volume)
+
+  WRITE(*,"(A,I0)") "ACTUAL Total Lagoon Volume: ", volume
 
   DEALLOCATE(trench)
   DEALLOCATE(dig_plan)
 
   CONTAINS
 
-    SUBROUTINE calc_lagoon(trench, volume)
+    SUBROUTINE calc_lagoon(trench, length, volume)
       IMPLICIT NONE
       TYPE(trench_wall), &
         INTENT(IN)              :: trench(:)
-      INTEGER(KIND=int32), &
+      INTEGER(KIND=int64), &
+        INTENT(IN)              :: length
+      INTEGER(KIND=int64), &
         INTENT(OUT)             :: volume 
-      INTEGER, &
-        ALLOCATABLE             :: filled(:,:)
-      INTEGER(KIND=int32)       :: i
+      INTEGER(KIND=int64)       :: cross_1, cross_2
 
-      IF (ALLOCATED(filled)) DEALLOCATE(filled)
-      ALLOCATE(filled(MINVAL(trench(:)%row):MAXVAL(trench(:)%row), &
-                      MINVAL(trench(:)%col):MAXVAL(trench(:)%col)))
-      ! Fill the points described by the trench
-      filled(:,:) = 0
-      DO i=1,SIZE(trench)
-        filled(trench(i)%row, trench(i)%col) = trench(i)%orientation
-      END DO
-
-      ! I am pathetic and was tired so for this one I just
-      ! used a lazy fill and eyeballed a point - it makes
-      ! me unhappy but I will think about revising it for
-      ! part 2
-      CALL flood_fill(filled, 122, 82, 4)
-
-      volume = COUNT(filled /= 0)
-
-      DEALLOCATE(filled)
+      ! Use Gauss Area 
+      cross_1 = SUM(trench(:)%row * CSHIFT(trench(:)%col,1))
+      cross_2 = SUM(trench(:)%col * CSHIFT(trench(:)%row,1))
+      volume = ABS((cross_1)/2 - (cross_2)/2)
+      ! Since the trench is a 1m cube around each point need
+      ! to add on the additional outer permiter
+      volume = volume + length/2 + 1
 
     END SUBROUTINE calc_lagoon
-
-    RECURSIVE SUBROUTINE flood_fill(grid, row, col, fill)
-      IMPLICIT NONE
-      INTEGER(KIND=int32), &
-        INTENT(INOUT)           :: grid(:,:)
-      INTEGER(KIND=int32), &
-        INTENT(IN)              :: row, col, fill
-      grid(row,col) = fill
-      IF ((row+1 <= SIZE(grid,1)) .AND. (grid(row+1,col) == 0)) THEN
-        CALL flood_fill(grid, row+1, col, fill)
-      END IF
-      IF ((col+1 <= SIZE(grid,2)) .AND. (grid(row,col+1) == 0)) THEN
-        CALL flood_fill(grid, row, col+1, fill)
-      END IF
-      IF ((row-1 >= 1)  .AND. (grid(row-1,col) == 0)) THEN
-        CALL flood_fill(grid, row-1, col, fill)
-      END IF
-      IF ((col-1 >= 1)  .AND. (grid(row,col-1) == 0)) THEN
-        CALL flood_fill(grid, row, col-1, fill)
-      END IF
-
-    END SUBROUTINE flood_fill
 
     SUBROUTINE dig_trench(plan, trench)
       IMPLICIT NONE
@@ -98,53 +70,61 @@ PROGRAM crucible
       TYPE(trench_wall), &
         ALLOCATABLE, &
         INTENT(INOUT)           :: trench(:)
-      INTEGER(KIND=int32)       :: i, j, offset, &
-                                   row, col, ori, &
-                                   cur_row, cur_col
+      INTEGER(KIND=int64)       :: i, row, col
 
       ! Figure out length of trench and prepare it
       IF (ALLOCATED(trench)) DEALLOCATE(trench)
-      ALLOCATE(trench(SUM(plan(:)%distance)))
+      ALLOCATE(trench(SIZE(plan)))
 
-      cur_row = 0
-      cur_col = 0
-      offset = 1
-      DO i=1,SIZE(plan)
+      trench(1)%row = 0
+      trench(1)%col = 0
+      trench_length = 0
+      DO i=2,SIZE(plan)
         ! Setup the direction
         col = 0
         row = 0
         SELECT CASE(plan(i)%direction)
         CASE(dir_u)
           row = -1
-          ori = orient_ns
         CASE (dir_d)
           row = 1
-          ori = orient_ns
         CASE (dir_l)
           col = -1
-          ori = orient_ew
         CASE (dir_r)
           col = 1
-          ori = orient_ew
         CASE DEFAULT
           WRITE(*,"(A,I0)") "Bad direction: ", plan(i)%direction
           CALL ABORT()
         END SELECT
-        ! Fill the points for this plan step
-        DO j=1,plan(i)%distance
-          cur_row = cur_row + row
-          cur_col = cur_col + col
-          trench(offset)%row = cur_row
-          trench(offset)%col = cur_col
-          trench(offset)%orientation = ori
-          trench(offset)%colour = plan(i)%colour
-          offset = offset + 1
-        END DO
-        ! The last point is a corner
-        trench(offset -1)%orientation = orient_corner
+        ! Set the next pair of coordinates
+        trench(i)%row = trench(i-1)%row + plan(i)%distance*row
+        trench(i)%col = trench(i-1)%col + plan(i)%distance*col
       END DO
   
     END SUBROUTINE dig_trench
+
+    SUBROUTINE expand_input(plan)
+      IMPLICIT NONE
+      TYPE(dig_step), &
+        INTENT(INOUT)           :: plan(:)
+      INTEGER(KIND=int64)       :: i, hex_dist, dir
+      DO i=1,SIZE(plan)
+        READ(plan(i)%colour(2:7), "(Z5,I1)") hex_dist, dir
+        SELECT CASE(dir)
+          CASE(0)
+            plan(i)%direction = dir_r
+          CASE (1)
+            plan(i)%direction = dir_d
+          CASE (2)
+            plan(i)%direction = dir_l
+          CASE (3)
+            plan(i)%direction = dir_u
+          CASE DEFAULT
+            CALL ABORT()
+        END SELECT
+        plan(i)%distance = hex_dist
+      END DO
+    END SUBROUTINE expand_input
 
     SUBROUTINE read_input(filename, plan)
       IMPLICIT NONE
