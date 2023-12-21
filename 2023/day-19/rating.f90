@@ -1,6 +1,6 @@
 PROGRAM rating
   
-  USE, INTRINSIC:: ISO_FORTRAN_ENV, ONLY: int32, IOSTAT_END
+  USE, INTRINSIC:: ISO_FORTRAN_ENV, ONLY: int32, int64, IOSTAT_END
   IMPLICIT NONE
 
   INTEGER(KIND=int32), &
@@ -32,28 +32,107 @@ PROGRAM rating
     ALLOCATABLE          :: workflows(:)
   INTEGER(KIND=int32), &
     ALLOCATABLE          :: parts(:,:)
-  INTEGER(KIND=int32)    :: rating_sum
+  INTEGER(KIND=int32)    :: rating_sum, start
+
+  INTEGER(KIND=int64)    :: combinations
+  INTEGER(KIND=int32)    :: full_range(4,2)
 
   CALL read_input("input.txt", workflows, parts)
 
-  CALL sort_parts(parts, workflows, rating_sum)
+  CALL sort_parts(parts, workflows, rating_sum, start)
 
   WRITE(*,"(A,I0)") "Sum of accepted ratings: ", rating_sum
-
   DEALLOCATE(parts)
+
+  full_range(:,1) = 1
+  full_range(:,2) = 4000
+  CALL calc_combinations(workflows, start, full_range, combinations)
+  WRITE(*,"(A,I0)") "Distinct combinations accepted: ", combinations
+
   DEALLOCATE(workflows)
 
   CONTAINS
+    RECURSIVE SUBROUTINE calc_combinations(workflows, i_workflow, ranges, combinations)
+      IMPLICIT NONE
+      TYPE(workflow), &
+        INTENT(IN)              :: workflows(:)
+      INTEGER(KIND=int32), &
+        INTENT(IN)              :: i_workflow, ranges(4,2)
+      INTEGER(KIND=int64), &
+        INTENT(OUT)             :: combinations
+      INTEGER(KIND=int64)       :: combinations_sub
+      INTEGER(KIND=int32)       :: i, new_ranges_l(4,2), new_ranges_r(4,2)
+      
+      ! If we arrive at the routine for the accepted destination
+      ! we just need to calculate the number of combos the given range
+      ! represents and head back up the call stack
+      IF (i_workflow == accepted) THEN
+        combinations = PRODUCT(ranges(:,2) - ranges(:,1) + 1_int64)
+        RETURN
+      END IF
+      ! If we arrive at the rejected destination then we can just
+      ! return nothing back up the call stack
+      IF (i_workflow == rejected) THEN
+        combinations = 0
+        RETURN
+      END IF
 
-    SUBROUTINE sort_parts(parts, workflows, rating_sum)
+      ! Split the range into two - the left/right represent the part of
+      ! the range that gets directed to a new workflow or continues to
+      ! the next rule respectively
+      new_ranges_l = ranges
+      new_ranges_r = ranges
+      combinations = 0
+
+      DO i=1,SIZE(workflows(i_workflow)%rules)
+        ! Work out the left/right halves of the ranges for the given
+        ! dimension being partitioned
+        SELECT CASE(workflows(i_workflow)%rules(i)%condition)
+        CASE(cond_gt)
+          new_ranges_l(workflows(i_workflow)%rules(i)%category,1) &
+            = workflows(i_workflow)%rules(i)%threshold + 1
+          new_ranges_r(workflows(i_workflow)%rules(i)%category,2) &
+            = workflows(i_workflow)%rules(i)%threshold
+        CASE (cond_lt)
+          new_ranges_l(workflows(i_workflow)%rules(i)%category,2) &
+            = workflows(i_workflow)%rules(i)%threshold - 1
+          new_ranges_r(workflows(i_workflow)%rules(i)%category,1) &
+            = workflows(i_workflow)%rules(i)%threshold
+        END SELECT
+
+        ! Call again for the stuff on the left (i.e. the stuff being
+        ! redirected by this rule) the right partition carries on to
+        ! consider the next rule
+        CALL calc_combinations( &
+          workflows, &
+          workflows(i_workflow)%rules(i)%destination, &
+          new_ranges_l, &
+          combinations_sub)
+        combinations = combinations + combinations_sub
+
+        ! The ranges on the left are also now *gone*
+        new_ranges_l = new_ranges_r
+      END DO
+
+      ! The final right partition goes on to the default rule 
+      CALL calc_combinations( &
+        workflows, &
+        workflows(i_workflow)%default_destination, &
+        new_ranges_r, &
+        combinations_sub)
+      combinations = combinations + combinations_sub
+
+    END SUBROUTINE calc_combinations
+
+    SUBROUTINE sort_parts(parts, workflows, rating_sum, start)
       IMPLICIT NONE
       TYPE(workflow), &
         INTENT(IN)              :: workflows(:)
       INTEGER(KIND=int32), &
         INTENT(IN)              :: parts(:,:)
       INTEGER(KIND=int32), &
-        INTENT(OUT)             :: rating_sum
-      INTEGER(KIND=int32)       :: i, j, start, i_workflow, o_workflow
+        INTENT(OUT)             :: rating_sum, start
+      INTEGER(KIND=int32)       :: i, j, i_workflow, o_workflow
 
       ! Find starting workflow
       start = 0
