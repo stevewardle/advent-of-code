@@ -14,13 +14,7 @@ part1: ${NAME}
 part2: ${NAME}2
 	time ./$<
 
-linked_list.o: linked_list.f90
-	gfortran -c -Wall -Wpedantic -O3 $< -o $@
-
-pulse_module.o: pulse_module.f90
-	gfortran -c -Wall -Wpedantic -O3 $< -o $@
-
-${NAME}: ${NAME}.f90 linked_list.o pulse_module.o
+${NAME}: ${NAME}.f90
 	gfortran -Wall -Wpedantic -O3 $^ -o $@
 
 ${NAME}2: ${NAME}2.f90
