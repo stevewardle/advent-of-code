@@ -1,6 +1,6 @@
 PROGRAM pulse
   
-  USE, INTRINSIC:: ISO_FORTRAN_ENV, ONLY: int32, IOSTAT_END
+  USE, INTRINSIC:: ISO_FORTRAN_ENV, ONLY: int32, int64, IOSTAT_END
   IMPLICIT NONE
 
   ! Different types of pulses
@@ -47,10 +47,19 @@ PROGRAM pulse
 
   INTEGER(KIND=int32), &
     PARAMETER           :: pulse_queue_max = 1000, &
-                           button_presses = 1000
-  INTEGER(KIND=int32)   :: pulse_queue_size = 0, dest_broadcast, i
+                           button_presses = 5000
+  INTEGER(KIND=int32)   :: pulse_queue_size = 0, dest_broadcast, i, j, k
   TYPE(pulse_send)      :: pulse_send_queue(pulse_queue_max)
   INTEGER(KIND=int32)   :: total_low, total_high
+
+  ! For part 2 these are the 4 modules connected to the final one
+  ! before "rx" - they are looping so need to capture their loop
+  ! periods
+  INTEGER(KIND=int64)   :: emit_high(4) = -1
+  INTEGER(KIND=int64)   :: gcd, presses
+  CHARACTER(LEN=2), &
+    PARAMETER           :: emit_high_name(4) = &
+                              ["vz", "bq", "qh", "lt"]
 
   CALL read_input("input.txt", pulse_modules) 
 
@@ -65,19 +74,81 @@ PROGRAM pulse
     DO WHILE (.NOT. pulse_queue_empty())
       CALL process_pulse(pulse_modules, pulse_from_queue())
     END DO
+
+    IF (i == 1000) THEN
+      ! Count the pulses
+      total_low = 0
+      total_high = 0
+      DO j=1,SIZE(pulse_modules)
+        total_low = total_low + pulse_modules(j)%count_low
+        total_high = total_high + pulse_modules(j)%count_high
+      END DO
+  
+      WRITE(*,"(A,I0)") "Multiple of low and high pulses: ", total_low*total_high
+    END IF
+
+    ! This ends up being rather specific... but these 4 modules are the
+    ! ones in my input connected to "ft" the conjunction module which will
+    ! send the output signal to "rx" - find out when they each first emit
+    ! the high signal required to trigger "ft" to send low to "rx"
+    DO j=1,SIZE(pulse_modules)
+      IF (pulse_modules(j)%count_high > 0) THEN
+        DO k=1,SIZE(emit_high_name)
+          IF ((emit_high_name(k) == pulse_modules(j)%name) &
+            .AND. (emit_high(k) == -1)) THEN
+            emit_high(k) = i
+          END IF
+        END DO
+      END IF
+    END DO
   END DO
 
-  ! Count the pulses
-  total_low = 0
-  total_high = 0
-  DO i=1,SIZE(pulse_modules)
-    total_low = total_low + pulse_modules(i)%count_low
-    total_high = total_high + pulse_modules(i)%count_high
+  ! And since the loops are mercifully nicely aligned again as in
+  ! day-08 the answer is just the LCM of these
+  presses = emit_high(1)
+  DO i=2,4
+    CALL gcdx(presses, emit_high(i), gcd)
+    presses = presses / gcd * emit_high(i)
   END DO
-  
-  WRITE(*,"(A,I0)") "Multiple of low and high pulses: ", total_low*total_high
+
+  WRITE(*,"(A,I0)") "Number of presses required: ", presses
 
   CONTAINS
+
+    ! Shameless-ly ripped from Wikipedia this is the
+    ! Extended Euclidean Algorithm
+    SUBROUTINE gcdx(a, b, old_r, old_s_out, old_t_out)
+      IMPLICIT NONE
+      INTEGER(KIND=int64), &
+        INTENT(IN)          :: a, b
+      INTEGER(KIND=int64), &
+        INTENT(OUT)         :: old_r
+      INTEGER(KIND=int64), &
+        INTENT(OUT), &
+        OPTIONAL            :: old_s_out, old_t_out
+      INTEGER(KIND=int64)   :: old_s, old_t, r, s, t, quotient, prov
+      old_r = a
+      r     = b
+      old_s = 1
+      s     = 0
+      old_t = 0
+      t     = 1
+      DO WHILE (r /= 0)
+        quotient = old_r / r
+        prov = r
+        r = old_r - quotient*prov
+        old_r = prov
+        prov = s
+        s = old_s - quotient*prov
+        old_s = prov
+        prov = t
+        t = old_t - quotient*prov
+        old_t = prov
+      END DO
+      IF (PRESENT(old_s_out)) old_s_out = old_s
+      IF (PRESENT(old_t_out)) old_t_out = old_t
+
+    END SUBROUTINE gcdx
 
     SUBROUTINE process_pulse(modules, pulse)
       IMPLICIT NONE
