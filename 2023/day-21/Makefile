@@ -1,4 +1,4 @@
-NAME=pulse
+NAME=garden
 
 # URL for retrieving my input
 YEAR=$(shell basename $(dir ${CURDIR}))
