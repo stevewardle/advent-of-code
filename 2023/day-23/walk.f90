@@ -11,6 +11,8 @@ PROGRAM day_23
   CHARACTER(LEN=1), &
     PARAMETER               :: symbol(0:5) = ["#", ".", "^", ">", "v", "<"]
   INTEGER(KIND=int32)       :: path
+  LOGICAL, &
+    ALLOCATABLE             :: visited(:)
 
   CALL read_input("input.txt", grid) 
 
@@ -18,30 +20,52 @@ PROGRAM day_23
 
   CALL calc_edge_map(grid, nodes, edge_map)
 
-  CALL find_longest_path(edge_map, 1, path)
+  ALLOCATE(visited(SIZE(edge_map,1)))
+  visited(:) = .FALSE.
+  CALL find_longest_path(edge_map, 1, visited, path)
 
-  WRITE(*,"(A,I0)") "Longest path: ", path
-  
+  WRITE(*,"(A,I0)") "Longest path (with slopes): ", path
+
+  ! The edge map with slippery slopes removed can be formed
+  ! by connecting all directed edges in the reverse direction
+  edge_map = edge_map + TRANSPOSE(edge_map)
+  visited(:) = .FALSE.
+  CALL find_longest_path(edge_map, 1, visited, path)
+
+  WRITE(*,"(A,I0)") "Longest path (without slopes): ", path
+
+  DEALLOCATE(edge_map)
+  DEALLOCATE(nodes)
   DEALLOCATE(grid)
 
   CONTAINS
 
-    RECURSIVE SUBROUTINE find_longest_path(edge_map, node, path)
+    RECURSIVE SUBROUTINE find_longest_path(edge_map, node, visited, path)
       IMPLICIT NONE
       INTEGER(KIND=int32), &
         INTENT(IN)              :: edge_map(:,:), node
+      LOGICAL, &
+        INTENT(IN)              :: visited(SIZE(edge_map,1))
       INTEGER(KIND=int32), &
         INTENT(OUT)             :: path
       INTEGER(KIND=int32)       :: i, path_sub
+      LOGICAL                   :: visited_sub(SIZE(edge_map,1))
 
+      ! Update the visited array to show this node as visited
+      ! to later nodes in the call stack
+      visited_sub = visited
+      visited_sub(node) = .TRUE.
       path = 0
       DO i=1,SIZE(edge_map,2)
-        IF (edge_map(node,i) > 0) THEN
+        ! Find connected nodes that have not already been
+        ! visited
+        IF ((edge_map(node,i) > 0) &
+            .AND. (.NOT. visited(i))) THEN
           IF (i /= SIZE(edge_map,1)) THEN
             ! Invoke this routine again on each possible route
             ! that can be taken from the current node - unless
             ! it is the route to the exit node
-            CALL find_longest_path(edge_map, i, path_sub)
+            CALL find_longest_path(edge_map, i, visited_sub, path_sub)
             IF (path_sub > 0) THEN
               ! If a route was returned, add our distance to
               ! the total length
