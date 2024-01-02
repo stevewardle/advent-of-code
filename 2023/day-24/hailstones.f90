@@ -1,6 +1,6 @@
 PROGRAM day_24
   
-  USE, INTRINSIC:: ISO_FORTRAN_ENV, ONLY: int32, int64, real64, IOSTAT_END
+  USE, INTRINSIC:: ISO_FORTRAN_ENV, ONLY: int32, int64, real64, real128, IOSTAT_END
   IMPLICIT NONE
 
   TYPE hailstone
@@ -14,6 +14,7 @@ PROGRAM day_24
     PARAMETER           :: test_area_min = 200000000000000_int64, &
                            test_area_max = 400000000000000_int64
   INTEGER(KIND=int32)   :: collisions
+  REAL(KIND=real128)     :: coeffs(6,7), solution(7)
 
   CALL read_input("input.txt", hailstones) 
 
@@ -21,7 +22,182 @@ PROGRAM day_24
 
   WRITE(*, "(A,I0)") "Total collisions: ", collisions
 
+  CALL create_coeffs(hailstones, coeffs)
+
+  CALL gaussian_elimination(coeffs, solution)
+
+  WRITE(*, "(A,I0)") "Sum of rock's coords: ", &
+    INT(solution(1)+solution(2)+solution(3), KIND=int64)
+
   CONTAINS
+
+    ! Gaussian Elimination formula I ripped from the internet
+    ! because I couldn't remember it
+    SUBROUTINE gaussian_elimination(A, X)
+      IMPLICIT NONE
+      REAL(KIND=real128), &
+        INTENT(INOUT)           :: A(:,:)
+      REAL(KIND=real128), &
+        INTENT(OUT)             :: X(SIZE(A,1))
+      INTEGER(KIND=int32)       :: i, j, n
+      REAL(KIND=real128)        :: s
+
+      n = SIZE(A,1)
+      DO j=1,n
+        CALL pivot(A, j)
+        DO i=j+1,n
+          A(i,:) = A(i,:) - A(j,:)*A(i,j)/A(j,j)
+        END DO
+      END DO
+
+      DO i=n,1,-1
+        s = A(i, n+1)
+        DO j=i+1,n
+          s = s - A(i,j)*X(j)
+        END DO
+        X(i) = s/A(i,i)
+      END DO
+
+    END SUBROUTINE gaussian_elimination
+
+    SUBROUTINE pivot(A, offset)
+      IMPLICIT NONE
+      INTEGER(KIND=int32), &
+        INTENT(IN)              :: offset
+      REAL(KIND=real128), &
+        INTENT(INOUT)           :: A(:,:)
+      INTEGER(KIND=int32)       :: i, j
+      REAL(KIND=real128)        :: T(SIZE(A,2))
+
+      j = offset
+      DO i=offset,SIZE(A,1)
+        IF (ABS(A(i,offset)) > ABS(A(j,offset))) THEN
+          j = i
+        END IF
+      END DO
+      T = A(offset,:)
+      A(offset,:) = A(j,:)
+      A(j,:) = T
+
+    END SUBROUTINE
+
+    SUBROUTINE create_coeffs(hailstones, coeffs)
+      IMPLICIT NONE
+      TYPE(hailstone), &
+        INTENT(IN)              :: hailstones(:)
+      REAL(KIND=real128), &
+        INTENT(OUT)             :: coeffs(6,7)
+      ! Rock position - P(X,Y,Z) and velocity - V(X,Y,Z)
+      ! Hailstone positions - p1(x,y,z)...pn(x,y,z) 
+      !   and velocities v1(x,y,z)...vn(x,y,z)
+
+      ! Collision:
+      !  PX + t*VX = px + t*vx
+      !  PY + t*VY = py + t*vy
+      !  PZ + t*VZ = pz + t*vz
+
+      ! Rearrange:
+      !  t = (PX - px)/(vx - VX)  (1)
+      !  t = (PY - py)/(vy - VY)  (2)
+      !  t = (PZ - pz)/(vz - VZ)  (3)
+      
+      ! Set (1) == (2) and rearrange
+      !   PY*VX - PX*VY = PY*vx - py*vx + py*VX - PX*vy + px*vy - px*VY
+      ! Set (1) == (3) and rearrange
+      !   PZ*VX - PX*VZ = PZ*vx - pz*vx + pz*VX - PX*vz + px*vz - px*VZ
+      ! Set (2) == (3) and rearrange
+      !   PZ*VY - PY*VZ = PZ*vy - pz*vy + pz*VY - PY*vz + py*vz - py*VZ
+
+      ! The RHS of the above expressions must be equal for any pair
+      ! of hailstones (as the LHS do not depend on hailstones) so by
+      ! selecting 3 different pairs of hailstones we have
+      !   (v2y-v1y)PX + (v1x-v2x)PY + (p1y-p2y)VX + (p2x-p1x)VY 
+      !           = p2x*v2y - p2y*v2x - p1x*v1y + p1y*v1x
+      !   (v4z-v3z)PX + (v3x-v4x)PZ + (p3z-p4z)VX + (p4x-p3x)VZ
+      !           = p4x*v4z - p4z*v4x - p3x*v3z + p3z*v3x
+      !   (v5z-v6z)PY + (v6y-v5y)PZ + (p6z-p5z)VY + (p5y-p6y)VZ
+      !           = -p6y*v6z + p6z*v6y + p5y*v5z - p5z*v5y
+
+      ! Once we substitute in the p + v values this creates a
+      ! set of linear equations e.g.
+      !  A*PX + B*PY + 0*PZ + C*VX + D*VY + 0*VZ  = E
+      !  F*PX + 0*PY + G*PZ + H*VX + 0*VY + I*VZ  = J
+      !  0*PX + K*PY + L*PZ + 0*VX + M*VY + N*VZ  = O
+      ! And we can use Gaussian elimination to solve for P + V
+
+      ! Equation 1 with hailstones 1 and 2
+      coeffs(1,1) = hailstones(2)%vy - hailstones(1)%vy
+      coeffs(1,2) = hailstones(1)%vx - hailstones(2)%vx
+      coeffs(1,3) = 0
+      coeffs(1,4) = hailstones(1)%py - hailstones(2)%py
+      coeffs(1,5) = hailstones(2)%px - hailstones(1)%px
+      coeffs(1,6) = 0
+      coeffs(1,7) = hailstones(2)%px*hailstones(2)%vy &
+                  - hailstones(2)%py*hailstones(2)%vx &
+                  - hailstones(1)%px*hailstones(1)%vy &
+                  + hailstones(1)%py*hailstones(1)%vx
+
+      ! Equation 1 with hailstones 1 and 3
+      coeffs(2,1) = hailstones(3)%vy - hailstones(1)%vy
+      coeffs(2,2) = hailstones(1)%vx - hailstones(3)%vx
+      coeffs(2,3) = 0
+      coeffs(2,4) = hailstones(1)%py - hailstones(3)%py
+      coeffs(2,5) = hailstones(3)%px - hailstones(1)%px
+      coeffs(2,6) = 0
+      coeffs(2,7) = hailstones(3)%px*hailstones(3)%vy &
+                  - hailstones(3)%py*hailstones(3)%vx &
+                  - hailstones(1)%px*hailstones(1)%vy &
+                  + hailstones(1)%py*hailstones(1)%vx
+
+      ! Equation 2 with hailstones 1 and 2
+      coeffs(3,1) = hailstones(2)%vz - hailstones(1)%vz 
+      coeffs(3,2) = 0
+      coeffs(3,3) = hailstones(1)%vx - hailstones(2)%vx
+      coeffs(3,4) = hailstones(1)%pz - hailstones(2)%pz
+      coeffs(3,5) = 0
+      coeffs(3,6) = hailstones(2)%px - hailstones(1)%px
+      coeffs(3,7) = hailstones(2)%px*hailstones(2)%vz &
+                  - hailstones(2)%pz*hailstones(2)%vx &
+                  - hailstones(1)%px*hailstones(1)%vz &
+                  + hailstones(1)%pz*hailstones(1)%vx
+      
+      ! Equation 2 with hailstones 1 and 3
+      coeffs(4,1) = hailstones(3)%vz - hailstones(1)%vz 
+      coeffs(4,2) = 0
+      coeffs(4,3) = hailstones(1)%vx - hailstones(3)%vx
+      coeffs(4,4) = hailstones(1)%pz - hailstones(3)%pz
+      coeffs(4,5) = 0
+      coeffs(4,6) = hailstones(3)%px - hailstones(1)%px
+      coeffs(4,7) = hailstones(3)%px*hailstones(3)%vz &
+                  - hailstones(3)%pz*hailstones(3)%vx &
+                  - hailstones(1)%px*hailstones(1)%vz &
+                  + hailstones(1)%pz*hailstones(1)%vx
+
+      ! Equation 3 with hailstones 1 and 2
+      coeffs(5,1) = 0 
+      coeffs(5,2) = hailstones(1)%vz - hailstones(2)%vz
+      coeffs(5,3) = hailstones(2)%vy - hailstones(1)%vy
+      coeffs(5,4) = 0
+      coeffs(5,5) = hailstones(2)%pz - hailstones(1)%pz
+      coeffs(5,6) = hailstones(1)%py - hailstones(2)%py
+      coeffs(5,7) = -hailstones(2)%py*hailstones(2)%vz &
+                  + hailstones(2)%pz*hailstones(2)%vy &
+                  + hailstones(1)%py*hailstones(1)%vz &
+                  - hailstones(1)%pz*hailstones(1)%vy
+
+      ! Equation 3 with hailstones 1 and 3
+      coeffs(6,1) = 0 
+      coeffs(6,2) = hailstones(1)%vz - hailstones(3)%vz
+      coeffs(6,3) = hailstones(3)%vy - hailstones(1)%vy
+      coeffs(6,4) = 0
+      coeffs(6,5) = hailstones(3)%pz - hailstones(1)%pz
+      coeffs(6,6) = hailstones(1)%py - hailstones(3)%py
+      coeffs(6,7) = -hailstones(3)%py*hailstones(3)%vz &
+                  + hailstones(3)%pz*hailstones(3)%vy &
+                  + hailstones(1)%py*hailstones(1)%vz &
+                  - hailstones(1)%pz*hailstones(1)%vy
+      
+    END SUBROUTINE create_coeffs 
 
     SUBROUTINE calc_collisions(hailstones, collisions)
       IMPLICIT NONE
