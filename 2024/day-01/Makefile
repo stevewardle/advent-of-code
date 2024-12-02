@@ -23,6 +23,7 @@ nextday:
 	cp Makefile ../day-${DAYN}
 	echo "input.txt" >> ../day-${DAYN}/.gitignore
 	echo "example.txt" >> ../day-${DAYN}/.gitignore
+	echo "main" >> ../day-${DAYN}/.gitignore
 
 clean:
 	rm main 2> /dev/null
