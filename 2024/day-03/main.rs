@@ -5,20 +5,16 @@ fn main() -> io::Result<()> {
     let path = "input.txt";
     let memory = read_to_string(path)?;
 
-
     let pattern = "mul(";
     let mut start = 0;
     let mut result_and_pos: Vec<(i32, usize)> = Vec::new();
     while let Some(pos) = memory[start..].find(pattern) {
         let found_pos = start + pos;
-        //println!("Found {} at {}", pattern, found_pos);
-        // println!("Memory: {}", &memory[found_pos..found_pos + 20]);
         start = found_pos + pattern.len(); 
 
         let number1;
         if let Some((num, new_start)) = find_integer_at_position(&memory, start) {
             number1 = num;
-            // println!("Number1: {}", number1);
             start = new_start;
         } else {
             continue;
@@ -33,7 +29,6 @@ fn main() -> io::Result<()> {
         let number2;
         if let Some((num, new_start)) = find_integer_at_position(&memory, start) {
             number2 = num;
-            // println!("Number2: {}", number2);
             start = new_start;
         } else {
             continue;
@@ -60,36 +55,29 @@ fn main() -> io::Result<()> {
     start = 0;
     instruction_sum = 0;
     loop {
-        let current_pattern;
+        let current_pattern = if active {
+            inactive_pattern
+        } else {
+            active_pattern
+        };
+
+        let found_pos = if let Some(pos) = memory[start..].find(current_pattern) {
+            start + pos
+        } else {
+            memory.len()
+        };
+
         if active {
-
-            current_pattern = inactive_pattern;
-        } else {
-            current_pattern = active_pattern;
-        }
-        if let Some(pos) = memory[start..].find(current_pattern) {
-
-            let found_pos = start + pos;
-            println!("Found {} at {}", current_pattern, found_pos);
-
-            if active {
-                println!("Check between {} and {}", start, found_pos);
-                println!("{}", &memory[start..found_pos]);
-
-                let active_sum : i32 = result_and_pos.iter()
-                                                     .filter(|(_, y)| *y > start && *y < found_pos)
-                                                     .map(|(x, _)| x)
-                                                     .sum();
-                instruction_sum += active_sum;
-            }
-
-            start = found_pos + pattern.len();  
-            active = !active;
-
-        } else {
-            break;
+            let active_sum : i32 = result_and_pos.iter()
+                                                 .filter(|(_, y)| *y >= start && *y <= found_pos)
+                                                 .map(|(x, _)| x)
+                                                 .sum();
+            instruction_sum += active_sum;
         }
 
+        if found_pos == memory.len() { break; }
+        start = found_pos + pattern.len();  
+        active = !active;
     }
 
     println!("Instruction sum (Enabled): {}", instruction_sum);
