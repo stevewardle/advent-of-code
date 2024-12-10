@@ -1,41 +1,28 @@
 use std::fs::File;
 use std::io::{self, BufRead};
+use std::collections::HashMap;
 
 fn main() -> io::Result<()> {
     let filename = "input.txt"; 
-    let word = "XMAS";
-
-    let mut total = 0;
-
-    // Left-right matches
     let wordsearch = read_file_to_grid(filename)?;
-    // print_grid(&wordsearch);
-    let found = search_for_word(&wordsearch, word);
-    // print_matches(&found);
-    total += found.len();
 
-    // Top-bottom matches
-    let wordsearch_rotated = rotate_grid(&wordsearch);
-    // print_grid(&wordsearch_rotated);
-    let found = search_for_word(&wordsearch_rotated, word);
-    // print_matches(&found);
-    total += found.len();
+    let word = "XMAS";
+    let found = search_grid_for_word(&wordsearch, &word);
+    println!("XMAS Appears {} times", found.len());
 
-    // Left-down-right / Right-up-left diagonal matches
-    let wordsearch_skew_left = skew_grid_left(&wordsearch);
-    // print_grid(&wordsearch_skew_left);
-    let found = search_for_word(&wordsearch_skew_left, word);
-    // print_matches(&found);
-    total += found.len();
+    let word = "MAS";
+    let found = search_grid_for_word_diagonal_only(&wordsearch, &word);
 
-    // Right-down-left / Left-up-right diagonal matches
-    let wordsearch_skew_right = skew_grid_right(&wordsearch);
-    // print_grid(&wordsearch_skew_right);
-    let found = search_for_word(&wordsearch_skew_right, word);
-    // print_matches(&found);
-    total += found.len();
+    let mut coord_counts: HashMap<(usize, usize), usize> = HashMap::new();
 
-    println!("XMAS Appears {} times", total);
+    for matched in &found {
+        let middle_coords = matched[1].coords;
+        *coord_counts.entry(middle_coords).or_insert(0) += 1;
+    }
+
+    let crosses = coord_counts.values().filter(|&&count| count > 1).count();
+
+    println!("X-MAS crosses appear {} times", crosses);
 
     Ok(())
 }
@@ -48,7 +35,47 @@ struct Square {
     coords: (usize, usize),
 }
 
-fn search_for_word(grid: &Vec<Vec<Square>>, word: &str) -> Vec<Vec<Square>> {
+fn search_grid_for_word_diagonal_only(grid: &Vec<Vec<Square>>, word: &str) -> Vec<Vec<Square>> {
+    let mut found: Vec<Vec<Square>> = Vec::new();
+    // Left-down-right / Right-up-left diagonal matches
+    let grid_skew_left = skew_grid_left(&grid);
+    // print_grid(&grid_skew_left);
+    found.append(&mut search_rows_for_word(&grid_skew_left, word));
+
+    // Right-down-left / Left-up-right diagonal matches
+    let grid_skew_right = skew_grid_right(&grid);
+    // print_grid(&grid_skew_right);
+    found.append(&mut search_rows_for_word(&grid_skew_right, word));
+
+    found
+
+}
+
+fn search_grid_for_word(grid: &Vec<Vec<Square>>, word: &str) -> Vec<Vec<Square>> {
+    let mut found: Vec<Vec<Square>> = Vec::new();
+    // print_grid(&grid);
+    found.append(&mut search_rows_for_word(&grid, word));
+
+    // Top-bottom matches
+    let grid_rotated = rotate_grid(&grid);
+    // print_grid(&grid_rotated);
+    found.append(&mut search_rows_for_word(&grid_rotated, word));
+
+    // Left-down-right / Right-up-left diagonal matches
+    let grid_skew_left = skew_grid_left(&grid);
+    // print_grid(&grid_skew_left);
+    found.append(&mut search_rows_for_word(&grid_skew_left, word));
+
+    // Right-down-left / Left-up-right diagonal matches
+    let grid_skew_right = skew_grid_right(&grid);
+    // print_grid(&grid_skew_right);
+    found.append(&mut search_rows_for_word(&grid_skew_right, word));
+
+    found
+
+}
+
+fn search_rows_for_word(grid: &Vec<Vec<Square>>, word: &str) -> Vec<Vec<Square>> {
     let mut matches: Vec<Vec<Square>> = Vec::new();
 
     let word_rev: String = word.chars().rev().collect();
