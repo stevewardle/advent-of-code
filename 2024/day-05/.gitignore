@@ -1,4 +1,5 @@
 input.txt
 example.txt
+output.txt
 target
 Cargo.lock

@@ -7,17 +7,9 @@ use std::collections::HashMap;
 fn main() -> anyhow::Result<()> {
     let (page_rules, updates) = read_input("input.txt")?;
 
-    // for rule in page_rules {
-    //     println!("{}|{}", rule.low, rule.high);
-    // }
-    // println!("");
-    // for update in updates {
-    //     let pages = update.join(",");
-    //     println!("{pages}");
-    // }
-
     let mut cache = HashMap::new();
     let mut middle_total = 0;
+    let mut reprocess = vec![];
     'outer: for update in updates {
         for pages in update.windows(2) {
             let current_page = &pages[0];
@@ -26,6 +18,7 @@ fn main() -> anyhow::Result<()> {
                 .entry(current_page.clone())
                 .or_insert_with(|| get_lower_and_higher(&page_rules, &current_page));
             if lower.contains(next_page) {
+                reprocess.push(update);
                 continue 'outer;
             }
         }
@@ -33,6 +26,30 @@ fn main() -> anyhow::Result<()> {
         middle_total += middle;
     }
     println!("Total of correctly ordered middle page numbers: {middle_total}");
+
+    let mut middle_total = 0;
+    for update in reprocess {
+        let mut current_update = update.clone();
+        'outer: loop {
+            for (i, pages) in current_update.windows(2).enumerate() {
+                let current_page = &pages[0];
+                let next_page = &pages[1];
+                let (lower, _) = cache
+                    .entry(current_page.clone())
+                    .or_insert_with(|| get_lower_and_higher(&page_rules, &current_page));
+                if lower.contains(next_page) {
+                    current_update.swap(i, i + 1);
+                    break;
+                }
+                if i == current_update.len() - 2 {
+                    break 'outer;
+                }
+            }
+        }
+        let middle: usize = current_update[current_update.len() / 2].parse()?;
+        middle_total += middle;
+    }
+    println!("Total of corrected incorrectly ordered middle page numbers: {middle_total}");
 
     Ok(())
 }
