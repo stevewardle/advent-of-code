@@ -1,0 +1,10 @@
+[package]
+name = "aoc_2024"
+version = "0.1.0"
+authors = ["Steve Wardle"]
+edition = "2021"
+resolver = "2"
+
+[dependencies]
+anyhow = "1.0.93"
+ndarray = "0.16.1"
