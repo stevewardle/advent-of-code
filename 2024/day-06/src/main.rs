@@ -1,36 +1,48 @@
 use std::fs::File;
 use std::io::{self, BufRead};
-use anyhow::{anyhow, Context};
+use anyhow::{anyhow, Context, Result};
 use ndarray::prelude::*;
 use std::collections::HashMap;
 
-fn main() -> anyhow::Result<()> {
+fn main() -> Result<()> {
     use Direction::*;
 
     let grid = read_input("example.txt")?;
 
     // Find start position
-    let mut start = grid
+    let start = grid
         .indexed_iter()
         .find(|(_, &c)| c == '^')
         .ok_or_else(|| anyhow!("Oh no"))?
         .0;
 
-    let mut direction = Up;
-    let mut new_start = start;
+    let visited = walk_grid(&grid, &start, &Up);
+    println!("Visited positions: {}", visited?.len());
+
+    Ok(())
+}
+
+fn walk_grid(
+    grid: &Array2<char>,
+    start: &(usize, usize),
+    direction_start: &Direction,)
+    -> Result<HashMap<(usize, usize), Vec<Direction>>> {
+
+    use Direction::*;
+    let mut direction = direction_start.clone();
+    let mut current_coords = start.clone();
+    let mut new_coords = current_coords; 
 
     let mut visited: HashMap<(usize, usize), Vec<Direction>> = HashMap::new();
-
-    // grid[[6, 3]] = '#';
 
     'outer: loop {
 
         // Exit loop if at edge and facing off it
         if match direction {
-            Up => new_start.0 == 0,
-            Down => new_start.0 == grid.nrows() - 1,
-            Left => new_start.1 == 0,
-            Right => new_start.1 == grid.ncols() - 1,
+            Up => new_coords.0 == 0,
+            Down => new_coords.0 == grid.nrows() - 1,
+            Left => new_coords.1 == 0,
+            Right => new_coords.1 == grid.ncols() - 1,
         } {
             break;
         }
@@ -38,20 +50,20 @@ fn main() -> anyhow::Result<()> {
 
         // Slice to end of array in the forward direction
         let forward = match direction {
-            Up => grid.slice(s![..start.0;-1, start.1]),
-            Down => grid.slice(s![start.0 +1.., start.1]),
-            Left => grid.slice(s![start.0, ..start.1;-1]),
-            Right => grid.slice(s![start.0, start.1 + 1..]),
+            Up => grid.slice(s![..current_coords.0;-1, current_coords.1]),
+            Down => grid.slice(s![current_coords.0 +1.., current_coords.1]),
+            Left => grid.slice(s![current_coords.0, ..current_coords.1;-1]),
+            Right => grid.slice(s![current_coords.0, current_coords.1 + 1..]),
         };
 
         for (i, step) in forward.indexed_iter() {
 
             // Get coords on original grid
             let coords = match direction {
-                Up => (start.0 - i - 1, start.1),
-                Down => (start.0 + i + 1, start.1),
-                Left => (start.0, start.1 - i - 1),
-                Right => (start.0, start.1 + i + 1),
+                Up => (current_coords.0 - i - 1, current_coords.1),
+                Down => (current_coords.0 + i + 1, current_coords.1),
+                Left => (current_coords.0, current_coords.1 - i - 1),
+                Right => (current_coords.0, current_coords.1 + i + 1),
             };
 
             // Loop Detection
@@ -66,11 +78,11 @@ fn main() -> anyhow::Result<()> {
                     visited.entry(coords.clone())
                         .and_modify(|directions| directions.push(direction.clone()))
                         .or_insert_with(|| vec![direction.clone()]);
-                    new_start = coords;
+                    new_coords = coords;
                 },
                 // Turn to the right
                 '#' => {
-                    start = new_start;
+                    current_coords = new_coords;
                     direction = match direction {
                         Up => Right,
                         Right => Down,
@@ -83,10 +95,7 @@ fn main() -> anyhow::Result<()> {
             }
         } 
     }
-
-    println!("Visited positions: {}", visited.len());
-
-    Ok(())
+    Ok(visited)
 }
 
 #[derive(Debug, Clone, PartialEq)]
