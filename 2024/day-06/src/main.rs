@@ -7,18 +7,57 @@ use std::collections::HashMap;
 fn main() -> Result<()> {
     use Direction::*;
 
-    let grid = read_input("example.txt")?;
+    let grid = read_input("input.txt")?;
 
     // Find start position
     let start = grid
         .indexed_iter()
         .find(|(_, &c)| c == '^')
-        .ok_or_else(|| anyhow!("Oh no"))?
+        .ok_or_else(|| anyhow!("Couldn't find start position"))?
         .0;
 
-    let visited = walk_grid(&grid, &start, &Up);
-    println!("Visited positions: {}", visited?.len());
+    // Do the first part
+    let visited = match walk_grid(&grid, &start, &Up) {
+        Ok(result) => result ,
+        Err(e) => return Err(e),
+    };
+    
+    println!("Visited positions: {}", visited.len());
 
+
+    // Go through each visited position from the original path adding
+    // extra obstacles and looking for loops
+    let mut modified_grid = grid.clone();
+    let mut loops_found = 0;
+    for (coords, directions) in visited.iter() {
+
+        // Take the first time a position was encountered only (since
+        // places that are hit multiple times might never be hit if a
+        // new obstacle is introduced) and walk back one to find the
+        // coordinate to start from
+        let modified_start = match directions[0] {
+            Up => (coords.0 + 1, coords.1),
+            Down => (coords.0 - 1, coords.1),
+            Left => (coords.0, coords.1 + 1),
+            Right => (coords.0, coords.1 - 1),
+        };
+
+        // Add the obstacle
+        modified_grid[[coords.0, coords.1]] = '#';
+
+        // Walk the path from just before the obstacle looking for loops
+        match walk_grid(&modified_grid, &modified_start, &directions[0]) {
+            Ok(_) => (),
+            Err(e) if e.to_string() == "Loop Detected!" => {
+                loops_found += 1;
+            }
+            Err(e) => return Err(e),
+        }
+
+        modified_grid[[coords.0, coords.1]] = '.';
+    }
+
+    println!("Obstruction positions resulting in loops: {loops_found}");
     Ok(())
 }
 
@@ -35,7 +74,7 @@ fn walk_grid(
 
     let mut visited: HashMap<(usize, usize), Vec<Direction>> = HashMap::new();
 
-    'outer: loop {
+    loop {
 
         // Exit loop if at edge and facing off it
         if match direction {
@@ -69,7 +108,7 @@ fn walk_grid(
             // Loop Detection
             if visited.get(&coords)
                 .map_or(false, |directions| directions.contains(&direction)) {
-                break 'outer;
+                return Err(anyhow!("Loop Detected!"));
             }
 
             match *step {
