@@ -2,11 +2,12 @@ use std::fs::File;
 use std::io::{self, BufRead};
 use anyhow::{anyhow, Context};
 use ndarray::prelude::*;
+use std::collections::HashMap;
 
 fn main() -> anyhow::Result<()> {
     use Direction::*;
 
-    let mut grid = read_input("input.txt")?;
+    let grid = read_input("example.txt")?;
 
     // Find start position
     let mut start = grid
@@ -14,21 +15,15 @@ fn main() -> anyhow::Result<()> {
         .find(|(_, &c)| c == '^')
         .ok_or_else(|| anyhow!("Oh no"))?
         .0;
-    // println!("{}, {}", start.0, start.1);
-    // Up
-    // println!("{}", grid.slice(s![..start.0;-1, start.1]));
-    // // Down
-    // println!("{}", grid.slice(s![start.0.., start.1]));
-    // // Left
-    // println!("{}", grid.slice(s![start.0, ..start.1;-1]));
-    // // Right
-    // println!("{}", grid.slice(s![start.0, start.1..]));
 
-    // let mut forward = grid.slice_mut(s![..start.0;-1, start.1]);
     let mut direction = Up;
     let mut new_start = start;
 
-    loop {
+    let mut visited: HashMap<(usize, usize), Vec<Direction>> = HashMap::new();
+
+    // grid[[6, 3]] = '#';
+
+    'outer: loop {
 
         // Exit loop if at edge and facing off it
         if match direction {
@@ -40,15 +35,16 @@ fn main() -> anyhow::Result<()> {
             break;
         }
 
+
         // Slice to end of array in the forward direction
-        let mut forward = match direction {
-            Up => grid.slice_mut(s![..start.0;-1, start.1]),
-            Down => grid.slice_mut(s![start.0 +1.., start.1]),
-            Left => grid.slice_mut(s![start.0, ..start.1;-1]),
-            Right => grid.slice_mut(s![start.0, start.1 + 1..]),
+        let forward = match direction {
+            Up => grid.slice(s![..start.0;-1, start.1]),
+            Down => grid.slice(s![start.0 +1.., start.1]),
+            Left => grid.slice(s![start.0, ..start.1;-1]),
+            Right => grid.slice(s![start.0, start.1 + 1..]),
         };
 
-        for (i, step) in forward.indexed_iter_mut() {
+        for (i, step) in forward.indexed_iter() {
 
             // Get coords on original grid
             let coords = match direction {
@@ -58,16 +54,22 @@ fn main() -> anyhow::Result<()> {
                 Right => (start.0, start.1 + i + 1),
             };
 
+            // Loop Detection
+            if visited.get(&coords)
+                .map_or(false, |directions| directions.contains(&direction)) {
+                break 'outer;
+            }
+
             match *step {
                 // Walk forward
-                '.' | 'X' | '^' => {
-                    *step = 'X';
-                    // println!("{:?} X", coords);
+                '.' | '^' => {
+                    visited.entry(coords.clone())
+                        .and_modify(|directions| directions.push(direction.clone()))
+                        .or_insert_with(|| vec![direction.clone()]);
                     new_start = coords;
                 },
                 // Turn to the right
                 '#' => {
-                    // println!("{:?} #", coords);
                     start = new_start;
                     direction = match direction {
                         Up => Right,
@@ -75,22 +77,19 @@ fn main() -> anyhow::Result<()> {
                         Down => Left,
                         Left => Up,
                     };
-                    // println!("{:?} {:?}", start, direction);
                     break;
                 },
                 _ => return Err(anyhow!("Unexpected character '{}' encountered!", *step)),
             }
         } 
-        // println!("{:?}", grid);
     }
 
-    let count = grid.iter().filter(|&&c| c == 'X').count();
-    println!("Visited positions: {count}");
+    println!("Visited positions: {}", visited.len());
 
     Ok(())
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 enum Direction {
     Up,
     Down,
