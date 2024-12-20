@@ -8,30 +8,35 @@ fn main() -> Result<()> {
 
     let (antennae, (max_row, max_col)) = read_input("input.txt")?;
 
-    let antinodes: Vec<(isize, isize)> = antennae
+    let mut antinodes: Vec<(isize, isize)> = antennae
         .iter()
         .combinations(2)
         .filter(|a| (a[0].frequency == a[1].frequency))
-        .map(|a| a[0].antinodes(a[1]))
+        .map(|a| a[0].antinodes(a[1], (max_row, max_col), false))
         .collect::<Result<Vec<_>>>()?
         .into_iter()
         .flatten()
         .collect();
 
-    let mut antinodes: Vec<(isize, isize)> = antinodes
-        .iter()
-        .filter(|(x, y)| *x >= 0
-                      && *x < max_col
-                      && *y >= 0
-                      && *y < max_row)
-        .cloned()
-        .collect();
-
     antinodes.sort();
     antinodes.dedup();
-    dbg!(&antinodes);
 
     println!("Unique Antinode locations: {}", antinodes.len());
+
+    let mut antinodes_res: Vec<(isize, isize)> = antennae
+        .iter()
+        .combinations(2)
+        .filter(|a| (a[0].frequency == a[1].frequency))
+        .map(|a| a[0].antinodes(a[1], (max_row, max_col), true))
+        .collect::<Result<Vec<_>>>()?
+        .into_iter()
+        .flatten()
+        .collect();
+
+    antinodes_res.sort();
+    antinodes_res.dedup();
+
+    println!("Unique Antinode locations (with Resonance): {}", antinodes_res.len());
 
     Ok(())
 }
@@ -43,24 +48,60 @@ struct Antenna {
 }
 
 impl Antenna {
-    fn antinodes(&self, other: &Antenna) -> Result<Vec<(isize, isize)>> {
+    fn antinodes(&self,
+                 other: &Antenna,
+                 max_coords: (isize, isize),
+                 resonance: bool) -> Result<Vec<(isize, isize)>> {
+
+        let mut antinodes = vec![];
+        // The case with resonance active includes the nodes
+        // themselve as antinodes
+        if resonance {
+            antinodes.push(self.coords);
+            antinodes.push(other.coords);
+        }
+
+        // The step between nodes in coord-space
         let node_delta = (
             self.coords.0 - other.coords.0,
             self.coords.1 - other.coords.1,
         );
-        let lower_node = (
-            self.coords.0 + node_delta.0,
-            self.coords.1 + node_delta.1,
-        );
-        let upper_node = (
-            other.coords.0 - node_delta.0,
-            other.coords.1 - node_delta.1,
-        );
-        let mut antinodes = vec![];
-        antinodes.push(lower_node);
-        antinodes.push(upper_node);
+
+        // Lower node first, calculate the first offset
+        // antinode before the loop
+        let mut lower_node = self.coords;
+        lower_node.0 += node_delta.0;
+        lower_node.1 += node_delta.1;
+        
+        while lower_node.0 >= 0 && lower_node.0 < max_coords.0
+          && lower_node.1 >= 0 && lower_node.1 < max_coords.1 {
+            antinodes.push(lower_node);
+            // Exit after possibly adding the first antinode
+            // if we are doing part 1
+            if !resonance { break; };
+            lower_node.0 += node_delta.0;
+            lower_node.1 += node_delta.1;
+        }
+
+        // Now Upper node, calculate the first offset
+        // antinode before the loop
+        let mut upper_node = other.coords;
+        upper_node.0 -= node_delta.0;
+        upper_node.1 -= node_delta.1;
+        
+        while upper_node.0 >= 0 && upper_node.0 < max_coords.0
+          && upper_node.1 >= 0 && upper_node.1 < max_coords.1 {
+            antinodes.push(upper_node);
+            // Exit after possibly adding the first antinode
+            // if we are doing part 1
+            if !resonance { break; };
+            upper_node.0 -= node_delta.0;
+            upper_node.1 -= node_delta.1;
+        }
+        
         Ok(antinodes)
     }
+
 }
 
 fn read_input(filename: &str) -> anyhow::Result<(Vec<Antenna>, (isize, isize))> {
