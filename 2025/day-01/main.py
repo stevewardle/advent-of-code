@@ -70,6 +70,3 @@ if __name__ == "__main__":
     input_file = sys.argv[1]
     lock = Lock(start_position=50, lock_size=99)
     main(input_file, lock)
-
-    # Guesses part 2
-    # 6676; incorrect!
