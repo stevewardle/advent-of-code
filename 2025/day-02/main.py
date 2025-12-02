@@ -13,46 +13,26 @@ class ProductIdRange:
         return int(self._start)
 
     @property
-    def start_p1(self):
-        return self._start[:len(self._start)//2]
-
-    @property
-    def start_p2(self):
-        return self._start[len(self._start)//2:]
-
-    @property
-    def end_p1(self):
-        return self._end[:len(self._end)//2]
-
-    @property
-    def end_p2(self):
-        return self._end[len(self._end)//2:]
-
-    @property
     def end(self):
         return int(self._end)
 
-    def cut_odd_length_ids(self):
-        start_length = len(self._start)
-        if start_length % 2 != 0:
-            new_start = 10 ** start_length
-            if new_start <= self.end:
-                self._start = str(new_start)
-            else:
-                self._start = "0"
-                self._end = "0"
-                return
-        end_length = len(self._end)
-        if end_length % 2 != 0:
-            self._end = str((10 ** (end_length - 1)) - 1)
-
     def find_invalid_ids(self):
         invalid_ids = []
-        for p1 in range(int(self.start_p1), int(self.end_p1) + 1):
-            print(f"Checking p1: {p1}")
-            if int(f"{p1}{p1}") <= self.end and int(f"{p1}{p1}") >= self.start:
-                print(f"Invalid id found - {p1}{p1}")
-                invalid_ids.append(f"{p1}{p1}")
+        for id in range(self.start, self.end + 1):
+            id_str = str(id)
+            # print(f"Checking id: {id_str}")
+            length = len(id_str)
+            for chunk_size in range(1, length // 2 + 1):
+                if length % chunk_size != 0:
+                    continue
+                chunks = [id_str[i:i + chunk_size]
+                          for i in range(0, length, chunk_size)]
+                # print(f"Chunks (size {chunk_size}): {chunks}")
+                if all(chunk == chunks[0] for chunk in chunks):
+                    # print(f"Invalid id found - {id_str}")
+                    if id_str not in invalid_ids:
+                        invalid_ids.append(id_str)
+
         return invalid_ids
 
 
@@ -63,18 +43,19 @@ def read_input(file):
 
 def main(input_file):
     id_ranges = read_input(input_file)
-    invalid_ids_total = 0
+    invalid_ids_p1_total = 0
+    invalid_ids_p2_total = 0
     for id_range in id_ranges:
-        print(f"Product ID Range: {id_range.start} to {id_range.end}")
-        id_range.cut_odd_length_ids()
-        print(f"Product ID Range with odd IDs removed: {
-              id_range.start} to {id_range.end}")
+        # print(f"Product ID Range: {id_range.start} to {id_range.end}")
         if id_range.start != 0 and id_range.end != 0:
-            print(f"{id_range.start_p1} - {id_range.start_p2}")
-            print(f"{id_range.end_p1} - {id_range.end_p2}")
             for invalid_id in id_range.find_invalid_ids():
-                invalid_ids_total += int(invalid_id)
-    print(f"Total of invalid product IDs: {invalid_ids_total}")
+                if len(invalid_id) % 2 == 0:
+                    half = len(invalid_id) // 2
+                    if invalid_id[:half] == invalid_id[half:]:
+                        invalid_ids_p1_total += int(invalid_id)
+                invalid_ids_p2_total += int(invalid_id)
+    print(f"Total of invalid product IDs (part 1): {invalid_ids_p1_total}")
+    print(f"Total of invalid product IDs (part 2): {invalid_ids_p2_total}")
 
 
 if __name__ == "__main__":
