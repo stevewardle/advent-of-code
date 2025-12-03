@@ -10,7 +10,6 @@ def read_input(file):
 
 
 def calc_joltage(bank, battery_count=2):
-    print(''.join(map(str, bank)))
     batteries = []
     bank_search = bank
     while len(batteries) < battery_count:
