@@ -35,10 +35,26 @@ def get_accessible_rolls(roll_grid):
     return accessible_rolls
 
 
+def remove_rolls(roll_grid, accessable_rolls):
+    rows, cols = accessable_rolls.shape
+    for i in range(rows):
+        for j in range(cols):
+            if accessable_rolls[i, j] == 1:
+                roll_grid[i+1, j+1] = 0
+    return roll_grid
+
+
 def main(input_file):
     roll_grid = read_input(input_file)
     accessable_rolls = get_accessible_rolls(roll_grid)
     print(f"Total Accessible Rolls: {np.sum(accessable_rolls)}")
+
+    total_rolls_removed = 0
+    while np.sum(accessable_rolls) > 0:
+        total_rolls_removed += np.sum(accessable_rolls)
+        roll_grid = remove_rolls(roll_grid, accessable_rolls)
+        accessable_rolls = get_accessible_rolls(roll_grid)
+    print(f"Total Rolls Removed: {total_rolls_removed}")
 
 
 if __name__ == "__main__":
