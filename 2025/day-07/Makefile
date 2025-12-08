@@ -1,6 +1,6 @@
 # URL for retrieving my input
 YEAR=$(shell basename $(dir ${CURDIR}))
-DAY=$(shell printf "%d" $(subst day-,,$(shell basename ${CURDIR})))
+DAY=$(shell printf "%d" $(shell echo $(subst day-,,$(shell basename ${CURDIR})) | sed 's/^0*//'))
 INPUT_URL=https://adventofcode.com/${YEAR}/day/${DAY}/input
 # Next day
 DAYN=$(shell printf "%02d" $$((${DAY}+1)))
