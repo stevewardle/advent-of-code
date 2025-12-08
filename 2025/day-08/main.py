@@ -55,18 +55,32 @@ def calc_distances(junction_boxes):
     return distances
 
 
-def connect_boxes(junction_boxes, distances, count):
+def connect_boxes(junction_boxes, distances, count=None):
     sorted_distances = sorted(distances.items(), key=lambda item: item[1])
     connections_made = 0
     circuit_id = 1
     for (box1, box2), dist in sorted_distances:
-        if connections_made >= count:
+        if count and connections_made >= count:
             break
         if box1.circuit_id == 0 and box2.circuit_id == 0:
             box1.circuit_id = box2.circuit_id = circuit_id
             circuit_id += 1
         box1.connect(box2)
         connections_made += 1
+        # Check if all boxes are connected
+        if all(box.circuit_id != 0 for box in junction_boxes):
+            return (box1, box2)
+
+
+def find_largest_circuits(junction_boxes, count):
+    circuit_ids = [
+        box.circuit_id for box in junction_boxes if box.circuit_id != 0]
+    circuit_count = Counter(circuit_ids)
+    largest_circuits = circuit_count.most_common(count)
+    result = 1
+    for _, size in largest_circuits:
+        result *= size
+    return result
 
 
 def main(input_file):
@@ -77,14 +91,10 @@ def main(input_file):
     else:
         count = 1000
     connect_boxes(junction_boxes, distances, count)
-    circuit_ids = [
-        box.circuit_id for box in junction_boxes if box.circuit_id != 0]
-    circuit_count = Counter(circuit_ids)
-    largest_circuits = circuit_count.most_common(3)
-    result = 1
-    for _, size in largest_circuits:
-        result *= size
+    result = find_largest_circuits(junction_boxes, 3)
     print(f"Multiple of 3 largest circuits: {result}")
+    final_box1, final_box2 = connect_boxes(junction_boxes, distances)
+    print(f"Multiple of their x coordinates: {final_box1.x * final_box2.x}")
 
 
 if __name__ == "__main__":
