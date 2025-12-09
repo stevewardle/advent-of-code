@@ -20,26 +20,11 @@ def calc_largest_rectangle(red_tile_coords, red_and_green=False):
     largest = 0
     for i, ((x, y), (x1, y1)) in enumerate(itertools.combinations(red_tile_coords, 2)):
         area = (abs(x1 - x)+1) * (abs(y1 - y)+1)
-        print(f"Checking rectangle {
-              i}: ({x},{y}) to ({x1},{y1}) with area {area}")
         if area > largest:
             if red_and_green:
-                all_points_inside = True
-                if not polygon.covers(Point(x, y1)) or not polygon.covers(Point(x1, y)) or area > polygon.area:
-                    continue
-                for xi in range(min(x, x1), max(x, x1) + 1):
-                    if not polygon.covers(Point(xi, min(y, y1))) or not polygon.covers(Point(xi, max(y, y1))):
-                        all_points_inside = False
-                        break
-                if not all_points_inside:
-                    continue
-                for yi in range(min(y, y1), max(y, y1) + 1):
-                    if not polygon.covers(Point(min(x, x1), yi)) or not polygon.covers(Point(max(x, x1), yi)):
-                        all_points_inside = False
-                        break
-                if not all_points_inside:
-                    continue
-                largest = area
+                rectangle = Polygon([(x, y), (x1, y), (x1, y1), (x, y1)])
+                if polygon.covers(rectangle):
+                    largest = area
             else:
                 largest = area
     return largest
