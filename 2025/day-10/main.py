@@ -3,19 +3,24 @@
 import sys
 import itertools
 import numpy as np
+import pulp
 
 
 class Machine:
-    def __init__(self, activation_state, buttons, joltage):
+    def __init__(self, activation_state, buttons, joltage_target):
         self.activation_state = activation_state
         self.buttons = buttons
-        self.joltage = joltage
+        self.joltage_target = joltage_target
         self.lights = np.zeros(len(activation_state), dtype=bool)
+        self.joltage = np.zeros(len(joltage_target), dtype=int)
 
-    def push_button(self, button_index):
+    def push_button(self, button_index, mode="lights"):
         if button_index < 0 or button_index >= len(self.buttons):
             raise IndexError("Button index out of range")
-        self.lights ^= self.buttons[button_index]
+        if mode == "lights":
+            self.lights ^= self.buttons[button_index]
+        elif mode == "joltage":
+            self.joltage += self.buttons[button_index].astype(int)
 
 
 def read_input(file):
@@ -43,18 +48,38 @@ def read_input(file):
     return machines
 
 
-def calc_min_presses(machine):
+def calc_min_presses(machine, max_presses=100):
     n_buttons = len(machine.buttons)
-    for r in range(n_buttons + 1):
+    for r in range(max_presses + 1):
         for combo in itertools.combinations(range(n_buttons), r):
             machine.lights = np.zeros(
                 len(machine.activation_state), dtype=bool)
             for button_index in combo:
-                machine.push_button(button_index)
+                machine.push_button(button_index, mode="lights")
             if np.array_equal(machine.lights, machine.activation_state):
                 return r
     raise ValueError(
         "No combination of button presses can achieve the activation state")
+
+
+def calc_min_presses_ilp(machine):
+    n_buttons = len(machine.buttons)
+    n_targets = len(machine.joltage_target)
+    prob = pulp.LpProblem("MinButtonPresses", pulp.LpMinimize)
+    x = [pulp.LpVariable(f"x_{i}", lowBound=0, cat="Integer")
+         for i in range(n_buttons)]
+    prob += pulp.lpSum(x)
+    for j in range(n_targets):
+        prob += (
+            pulp.lpSum(x[i] * int(machine.buttons[i][j])
+                       for i in range(n_buttons))
+            == int(machine.joltage_target[j])
+        )
+    result = prob.solve(pulp.PULP_CBC_CMD(msg=False))
+    if pulp.LpStatus[result] == "Optimal":
+        return int(pulp.value(prob.objective))
+    else:
+        raise ValueError("No solution found")
 
 
 def main(input_file):
@@ -62,7 +87,11 @@ def main(input_file):
     total_presses = 0
     for machine in machines:
         total_presses += calc_min_presses(machine)
-    print(f"Total minimum button presses: {total_presses}")
+    print(f"Total minimum button presses (lights): {total_presses}")
+    total_presses = 0
+    for machine in machines:
+        total_presses += calc_min_presses_ilp(machine)
+    print(f"Total minimum button presses (joltage): {total_presses}")
 
 
 if __name__ == "__main__":
